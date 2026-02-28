@@ -7,12 +7,10 @@ import os
 from pathlib import Path
 import logging
 from collections import defaultdict
+from CreateDB.define_BGEM3_embeddings import BgeM3Embeddings
 
-
-from define_BGEM3_embeddings import BgeM3Embeddings
-
-DATA_PATH = "dataCleanedExample/Laws"
-CHROMA_PATH  = "chroma"
+DATA_PATH = "../dataCleanedExample/Laws"
+CHROMA_PATH  = "../chroma"
 
 embedding_model = BgeM3Embeddings()
 
