@@ -50,3 +50,7 @@ The number of tokens goes higher than the ones from BGE, so we wont have problem
 https://huggingface.co/BAAI/bge-reranker-v2-m3
 
 Implemented reranking for better context retrival
+
+### Metrics
+
+https://www.confident-ai.com/blog/rag-evaluation-metrics-answer-relevancy-faithfulness-and-more#retrieval-evaluation-metrics

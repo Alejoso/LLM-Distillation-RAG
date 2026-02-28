@@ -8,3 +8,4 @@ dotenv
 langchain-chroma
 transformers<5
 FlagEmbedding
+deepeval
