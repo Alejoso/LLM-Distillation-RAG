@@ -6,3 +6,5 @@ openai
 langchain-openai
 dotenv
 langchain-chroma
+transformers<5
+FlagEmbedding
