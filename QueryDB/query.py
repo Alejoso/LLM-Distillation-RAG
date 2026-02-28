@@ -14,17 +14,19 @@ from deepeval.metrics import ContextualRelevancyMetric
 from deepeval.metrics import ContextualRecallMetric
 from deepeval.metrics import ContextualPrecisionMetric
 
-
-
 # Types
 from typing import List, Tuple, Dict, Any, Optional
 from langchain_core.documents import Document
 
 # Other .py files
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1])) 
+
 from CreateDB.define_BGEM3_embeddings import BgeM3Embeddings
 from QueryDB.reranker_BGE import Reranker
 
-CHROMA_PATH  = "chroma"
+CHROMA_PATH  = "../chroma"
 
 PROMPT_TEMPLATE = """
 Answer the question based only on the following context:
