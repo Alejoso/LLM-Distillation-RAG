@@ -6,6 +6,7 @@ import shutil
 import os
 from pathlib import Path
 import logging
+from collections import defaultdict
 
 
 from define_BGEM3_embeddings import BgeM3Embeddings
@@ -74,7 +75,7 @@ def get_metadata_arguments(documents : list[Document]):
             "puntaje_de_calidad": quality_score,
             "estatus_de_calidad": quality_status,
             "archivo_origen": source_file,
-            "chunk_index": i,
+            "doc_index": i,
         })
 
     return metas
@@ -106,10 +107,11 @@ def add_info_to_chunks(chunk, prefix , suffix):
 def split_text(documents: list[Document]):
     logging.info("Creating chunks...")
     
-    text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
+    text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=800, # 800 Tokens
         chunk_overlap=150, # Each chunk is going to have an overlap of 150 tokens
-        # Important that this tokens are not the same as the tokens that BGEM3 counts, they are higher number.
+        length_function = embedding_model.count_tokens,
+        add_start_index=True,
     )
 
     chunks = text_splitter.split_documents(documents)
@@ -124,6 +126,20 @@ def split_text(documents: list[Document]):
         document.page_content,
         document.metadata
     )
+
+    return chunks
+
+def add_chunk_indexes(chunks: list[Document]):
+    counters = defaultdict(int)
+
+    for chunk in chunks:
+        key = chunk.metadata.get("source", chunk.metadata.get("archivo_origen", "unknown"))
+        chunk.metadata["chunk_index_in_doc"] = counters[key]
+        counters[key] += 1
+
+        # ID with the name of the source 21398.txt:0
+        chunk.metadata["chunk_id_with_source_file"] = f"{Path(key).name}:{chunk.metadata['chunk_index_in_doc']}"
+        chunk.metadata["n_tokens_bge"] = embedding_model.count_tokens(chunk.page_content)
 
     return chunks
 
@@ -145,28 +161,25 @@ def main():
     documents = load_documents()
 
     metas = get_metadata_arguments(documents)
-    documentsWithMeta = attach_metadata(documents , metas)
+    documents_with_meta = attach_metadata(documents , metas)
 
-    chunks = split_text(documentsWithMeta)
-    
-    save_to_chroma(chunks)
+    chunks_with_no_index = split_text(documents_with_meta)
+    chunks_with_index = add_chunk_indexes(chunks_with_no_index)
+
+    save_to_chroma(chunks_with_index)
 
     # Test for looking at the db and how this thingy is saved
     db = Chroma(persist_directory=CHROMA_PATH, embedding_function=embedding_model)
-
-    one = db._collection.peek(limit=1)  # trae 1 registro cualquiera
-
+    one = db._collection.peek(limit=1)
     print(one)
-    print("ID:", one["ids"][0])
-    print("METADATA:", one["metadatas"][0])
-    print("TEXTO (primeros 500 chars):\n", one["documents"][0][:500])
-
+    
 if __name__ == "__main__":
-    try:
-        main()
-        logging.info("Finished :)")
-    except Exception as e:
-        logging.error(f"Something went bad :( \n{e}")
+    main()
+    # try:
+    #     main()
+    #     logging.info("Finished :)")
+    # except Exception as e:
+    #     logging.error(f"Something went bad :( \n{e}")
     
 
 
