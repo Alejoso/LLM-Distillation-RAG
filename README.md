@@ -14,6 +14,7 @@ This repository documents a complete research project journey: from discovering 
    - [Phase 3: Automated Web Scraping](#phase-3-automated-web-scraping)
    - [Phase 4 – Cleaning and Structuring the HTML Files](#phase-4--cleaning-and-structuring-the-html-files)
    - [Phase 5: Quality Assessment](#phase-5-quality-assessment)
+   - [Phase 6: Domain MLM Preparation and Training Handoff](#phase-6-domain-mlm-preparation-and-training-handoff)
 2. [Project Structure](#project-structure)
 3. [Structure of a Cleaned File](#structure-of-a-cleaned-file)
    - [Metadata Header](#1-metadata-header)
@@ -32,6 +33,7 @@ This repository documents a complete research project journey: from discovering 
 	 - [Step 2: HTML Processing - Extract and Clean Text](#step-2-html-processing---extract-and-clean-text)
    - [Other Scripts](#other-scripts)
 	 - [PDF Processing - Extract and Clean PDF Documents](#pdf-processing---extract-and-clean-pdf-documents)
+    - [Training Dataset Generation - Domain Sentence Corpus](#training-dataset-generation---domain-sentence-corpus)
 	 - [Quality Metrics Assessment - Standalone Evaluation](#quality-metrics-assessment---standalone-evaluation)
 
 ---
@@ -106,13 +108,22 @@ Each document receives a composite score between 0 and 100 and is automatically 
 
 After running this evaluation on the full set of 11.347 documents, 11021 were classified as HIGH or MEDIUM quality and retained in `dataCleaned/Laws/`. The other 326 documents classified as DEFECTIVE were moved to `dataCleaned/unusable_files/`.
 
+### Phase 6: Domain MLM Preparation and Training Handoff
+
+Once the cleaned dataset was ready, the next step was coordination with **Simon**, who is responsible for model training and distillation.
+
+At this stage, I prepared a domain-focused training corpus so the MLM process could start with legal language that is explicitly in-domain.
+
+The work completed in this phase included:
+
+- Building a sentence-level dataset from `dataCleaned/Laws/` using `Scripts/ProccessDataTrainning/GenerateData.py`.
+- Applying pattern-based cleanup (`CleaningPatterns.py`) plus text normalization to reduce extraction noise.
+- Segmenting legal text with spaCy (`es_core_news_sm`) and filtering sentences by length to keep high-signal training samples.
+- Exporting the resulting corpus as JSON (e.g., `datasetTrain.json`) as a direct handoff artifact for training.
+
+With this handoff, Simon could begin domain-adaptive MLM pretraining and continue with the distillation workflow on a corpus aligned with Colombian legal language.
+
 ## Project Structure
-
-<div align="center">
-
-
-
-</div>
 
 ## Structure of a Cleaned File
 
@@ -363,6 +374,32 @@ python3 Scripts/ProcessPDFs/processPDFs.py --input data/PDFs --output dataCleane
 | `--input` / `-i` | (required) | Single PDF file or directory with PDF files |
 | `--output` / `-o` | (required) | Output file or directory for cleaned TXT files |
 | `--extensions` / `-e` | (optional) | File extensions to process (default: .pdf) |
+
+---
+
+#### Training Dataset Generation - Domain Sentence Corpus
+
+To generate a sentence-level JSON dataset for domain MLM training from cleaned legal TXT files, use:
+
+```bash
+python3 Scripts/ProccessDataTrainning/GenerateData.py --input dataCleaned/Laws --output datasetTrain.json
+```
+
+You can also run it with custom filtering limits:
+
+```bash
+python3 Scripts/ProccessDataTrainning/GenerateData.py --input dataCleaned/Laws --output datasetTrain.json --min-chars 100 --max-chars 200 --max-sentences 5000
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `--input` / `-i` | (optional) | Directory containing cleaned TXT files (default: `dataCleaned/Laws`) |
+| `--output` / `-o` | (optional) | Output JSON file path (default: `dataset_leyes.json`) |
+| `--min-chars` | (optional) | Minimum sentence length in characters (default: `100`) |
+| `--max-chars` | (optional) | Maximum sentence length in characters (default: `200`) |
+| `--max-sentences` | (optional) | Maximum number of sentences to export (default: `5000`) |
 
 ---
 

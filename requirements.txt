@@ -2,3 +2,4 @@ pypdfium2
 requests
 beautifulsoup4
 lxml
+spacy
