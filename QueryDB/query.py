@@ -13,6 +13,7 @@ from deepeval.test_case import LLMTestCase
 from deepeval.metrics import ContextualRelevancyMetric
 from deepeval.metrics import ContextualRecallMetric
 from deepeval.metrics import ContextualPrecisionMetric
+from deepeval.models import OllamaModel
 
 # Types
 from typing import List, Tuple, Dict, Any, Optional
@@ -43,6 +44,12 @@ openai.api_key = os.environ['OPENAI_API_KEY']
 embedding_model = BgeM3Embeddings()
 reranker = Reranker()
 
+judge_model = OllamaModel(
+    model="qwen2.5:7b-instruct",   # también podrías probar "llama3.1"
+    base_url="http://localhost:11434",
+    temperature=0
+)
+
 # Get a list of string for using it in the metrics evaluators
 def ranked_to_retrieval_context(
     ranked: List[Dict[str, Any]],
@@ -61,7 +68,7 @@ def ranked_to_retrieval_context(
 def contextual_relevancy(query_text: str , actual_output: str , retrieval_context: List[str]):
     metric = ContextualRelevancyMetric(
         threshold=0.7, 
-        model="gpt-5-nano",
+        model=judge_model,
         include_reason=True
     )
 
@@ -76,7 +83,7 @@ def contextual_relevancy(query_text: str , actual_output: str , retrieval_contex
 def contextual_recall(query_text:str , expected_output: str , actual_output: str , retrieval_context: List[str]):
     metric = ContextualRecallMetric(
         threshold=0.7, 
-        model="gpt-5-nano",
+        model=judge_model,
         include_reason=True
     )
     test_case = LLMTestCase(
@@ -90,7 +97,7 @@ def contextual_recall(query_text:str , expected_output: str , actual_output: str
 def contextual_precision(query_text:str , expected_output: str , actual_output: str , retrieval_context: List[str]):
     metric = ContextualPrecisionMetric(
         threshold=0.7, 
-        model="gpt-5-nano",
+        model=judge_model,
         include_reason=True
     )
     test_case = LLMTestCase(
@@ -133,8 +140,8 @@ def main():
 
     formatted_chunks_for_metrics = ranked_to_retrieval_context(ranked_chunks)
 
-    # relevancy_score = contextual_relevancy(query_text , response_text.text , formatted_chunks_for_metrics)
-    # print(f"Contextual relevancy score {relevancy_score}")
+    relevancy_score = contextual_relevancy(query_text , response_text.text , formatted_chunks_for_metrics)
+    print(f"Contextual relevancy score {relevancy_score}")
 
     expected_response = "La Ley 288 de 1882 abrió un crédito suplemental de 80,000 pesos, imputable al Departamento de la Deuda Nacional, capítulo 55, artículo 184 del Presupuesto de Gastos de la vigencia 1881-1882."
     recall_score = contextual_recall(query_text , expected_response , response_text.text , formatted_chunks_for_metrics)
