@@ -1,2 +1,8 @@
 numpy 
 torch
+transformers
+matplotlib
+seaborn
+datasets
+accelerate
+sentencepiece
