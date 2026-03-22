@@ -1,0 +1,99 @@
+{
+  "data": [
+    {
+      "instruction": "Identify the main idea of the document",
+      "context": "",
+      "response": "La Ley 6 de 1941 autoriza al Gobierno Nacional a ceder al Municipio de Puerto Wilches el acueducto de propiedad de la Nación que funciona en dicho Municipio."
+    },
+    {
+      "instruction": "Summarize the document in 1 sentence",
+      "context": "",
+      "response": "La Ley 6 de 1941 permits the National Government to transfer the ownership of the National Waterworks that serves the municipality of Puerto Wilches to the municipality."
+    },
+    {
+      "instruction": "Summarize the document in 3 sentences",
+      "context": "",
+      "response": "The National Waterworks in Puerto Wilches is being transferred to the municipality through a decree. The transfer is authorized by Law 6 of 1941. The National Government reserves the rights granted by Law 65 of 1936."
+    },
+    {
+      "instruction": "Classify the content into essential and non-essential",
+      "context": "",
+      "response": "Essential: Transfer of ownership of the National Waterworks in Puerto Wilches. Non-essential: Details of the transfer process and reservation of rights."
+    },
+    {
+      "instruction": "Describe the logical structure of the document",
+      "context": "",
+      "response": "The document has a clear and logical structure, starting with the authorization of the transfer and ending with the reservation of rights."
+    },
+    {
+      "instruction": "Rewrite the document in plain language for a layperson",
+      "context": "",
+      "response": "The National Government is giving the waterworks in Puerto Wilches to the municipality. The National Government still has some rights to the waterworks."
+    },
+    {
+      "instruction": "Identify the purpose of the document",
+      "context": "",
+      "response": "The purpose of the document is to authorize the transfer of ownership of the National Waterworks in Puerto Wilches to the municipality."
+    },
+    {
+      "instruction": "List key concepts with one-line definitions",
+      "context": "",
+      "response": "Key concepts: Transfer of ownership, National Waterworks, Puerto Wilches, authorization, Law 6 of 1941, reservation of rights."
+    },
+    {
+      "instruction": "Select exactly 5 keywords that capture the essence of the document",
+      "context": "",
+      "response": "Keywords: Transfer, ownership, waterworks, Puerto Wilches, authorization."
+    },
+    {
+      "instruction": "Explain how the ideas relate to each other",
+      "context": "",
+      "response": "The ideas in the document relate to each other in the context of transferring ownership of the National Waterworks in Puerto Wilches to the municipality, with the National Government reserving some rights."
+    },
+    {
+      "instruction": "Identify the main purpose of the law.",
+      "context": "",
+      "response": "El objetivo principal de la ley es ordenar la edición completa de las leyes nacionales desde 1821 hasta la actualidad."
+    },
+    {
+      "instruction": "Summarize the law in one sentence.",
+      "context": "",
+      "response": "La ley establece la necesidad de hacer una edición completa y esmerada de las leyes nacionales desde 1821 hasta la actualidad, con un índice cronológico y alfabético de materias."
+    },
+    {
+      "instruction": "Classify the content of the law into essential and non-essential.",
+      "context": "",
+      "response": "El contenido de la ley se puede clasificar en lo esencial (el texto de las leyes, el índice cronológico y alfabético de materias) y lo accidental (la numeración de las leyes, las referencias a otras leyes)."
+    },
+    {
+      "instruction": "Describe the logical structure of the law.",
+      "context": "",
+      "response": "La estructura lógica de la ley se organiza en varios artículos que establecen la necesidad de una edición completa de las leyes nacionales, la responsabilidad del Poder Ejecutivo en la Imprenta Nacional, y los destinos de la edición."
+    },
+    {
+      "instruction": "Rewrite the law in plain language for a layperson.",
+      "context": "",
+      "response": "La ley establece que el gobierno debe hacer una edición completa de las leyes nacionales para que todos puedan entenderlas. Esto significa que se publicarán todas las leyes desde 1821 hasta ahora, con un índice de fechas y temas para facilitar su uso."
+    },
+    {
+      "instruction": "Identify the key concepts of the law.",
+      "context": "",
+      "response": "Las claves conceptuales de la ley son la edición completa de las leyes nacionales, la responsabilidad del Poder Ejecutivo, la publicación de la edición, y el destino de los ejemplares."
+    },
+    {
+      "instruction": "Select the most important words or phrases from the law.",
+      "context": "",
+      "response": "Las palabras clave de la ley son 'edición completa', 'leyes nacionales', 'Poder Ejecutivo', 'Imprenta Nacional', 'destinos', y 'publicación'."
+    },
+    {
+      "instruction": "Explain how the ideas in the law relate to each other.",
+      "context": "",
+      "response": "Las ideas en la ley se relacionan entre sí en la siguiente manera: la necesidad de una edición completa de las leyes nacionales es el objetivo principal de la ley, y el Poder Ejecutivo es el encargado de hacerla. La publicación de la edición se destina a diferentes destinatarios, como las oficinas públicas, los canjes internacionales, y la venta."
+    },
+    {
+      "instruction": "Summarize the law in three sentences.",
+      "context": "",
+      "response": "La ley establece la necesidad de una edición completa de las leyes nacionales desde 1821 hasta la actualidad. El Poder Ejecutivo es el encargado de hacer esta edición en la Imprenta Nacional. La publicación de la edición se destina a diferentes destinatarios."
+    }
+  ]
+}
