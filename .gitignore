@@ -1,0 +1,5 @@
+/venv
+/data
+/dataCleaned
+DataSet.tar.gz
+datasetTrain.json
