@@ -1,0 +1,10 @@
+.env
+venv
+chroma_*
+chroma
+.DS_Store
+*.log
+dataCleaned
+dataCleanedExample
+__pycache__
+.deepeval
