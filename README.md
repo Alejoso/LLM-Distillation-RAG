@@ -15,6 +15,7 @@ This repository documents a complete research project journey: from discovering 
    - [Phase 4 – Cleaning and Structuring the HTML Files](#phase-4--cleaning-and-structuring-the-html-files)
    - [Phase 5: Quality Assessment](#phase-5-quality-assessment)
    - [Phase 6: Domain MLM Preparation and Training Handoff](#phase-6-domain-mlm-preparation-and-training-handoff)
+   - [Phase 7: LLM-Based Distillation Dataset Generation](#phase-7-llm-based-distillation-dataset-generation)
 2. [Project Structure](#project-structure)
 3. [Structure of a Cleaned File](#structure-of-a-cleaned-file)
    - [Metadata Header](#1-metadata-header)
@@ -34,6 +35,7 @@ This repository documents a complete research project journey: from discovering 
    - [Other Scripts](#other-scripts)
 	 - [PDF Processing - Extract and Clean PDF Documents](#pdf-processing---extract-and-clean-pdf-documents)
     - [Training Dataset Generation - Domain Sentence Corpus](#training-dataset-generation---domain-sentence-corpus)
+    - [LLM-Based Distillation Dataset Generation](#llm-based-distillation-dataset-generation---instruction-response-pairs)
 	 - [Quality Metrics Assessment - Standalone Evaluation](#quality-metrics-assessment---standalone-evaluation)
 
 ---
@@ -122,6 +124,39 @@ The work completed in this phase included:
 - Exporting the resulting corpus as JSON (e.g., `datasetTrain.json`) as a direct handoff artifact for training.
 
 With this handoff, Simon could begin domain-adaptive MLM pretraining and continue with the distillation workflow on a corpus aligned with Colombian legal language.
+
+### Phase 7: LLM-Based Distillation Dataset Generation
+
+Beyond the sentence-level corpus prepared in Phase 6, a second dataset generation approach was developed to produce structured instruction-response pairs using a large language model.
+
+The notebook `Scripts/ProccessDataTrainning/GeneratingDataWithLLM.ipynb` uses **Llama-2-7b-chat** (via Hugging Face Transformers) to read each cleaned legal document and generate exactly 10 question-answer examples designed for information distillation training.
+
+Each generated example follows the format:
+- **Instruction:** A question or task about the legal document.
+- **Context:** Always empty (the model must rely on internalized knowledge from the prompt).
+- **Response:** A compressed, synthesized answer derived strictly from the document content.
+
+The 10 examples per document follow a mandatory distribution across 9 question types:
+
+| Type | Count | Description |
+|------|-------|-------------|
+| `idea_central` | 2 | Capture the core idea in a single sentence |
+| `resumen_3_niveles` | 1 | Summary at 3 levels: 1 sentence, 3 sentences, and 5 bullet points |
+| `esencial_vs_accesorio` | 1 | Classify content into essential and non-essential |
+| `estructura_logica` | 1 | Describe the logical structure of the document |
+| `reescritura_simplificada` | 1 | Plain-language rewrite accessible to a layperson |
+| `intencion_autor` | 1 | Identify the purpose of the document |
+| `conceptos_clave` | 1 | List key concepts with one-line definitions |
+| `reduccion_extrema` | 1 | Select exactly 5 keywords that capture the essence |
+| `conexiones_internas` | 1 | Explain how the ideas in the document relate to each other |
+
+The pipeline includes:
+- **Prompt engineering** with strict formatting rules so that the output can be parsed programmatically using regex.
+- **Validation** that filters out examples with instructions shorter than 10 characters or responses shorter than 30 characters.
+- **Document truncation** to 4,000 characters to fit within the model's context window.
+- **Output** saved as a JSON file (`datasetTrain.json`) with the same structure used in Phase 6.
+
+This approach complements the sentence-level corpus by producing higher-level reasoning and comprehension examples that can be used for instruction-tuning or knowledge distillation.
 
 ## Project Structure
 
@@ -400,6 +435,48 @@ python3 Scripts/ProccessDataTrainning/GenerateData.py --input dataCleaned/Laws -
 | `--min-chars` | (optional) | Minimum sentence length in characters (default: `100`) |
 | `--max-chars` | (optional) | Maximum sentence length in characters (default: `200`) |
 | `--max-sentences` | (optional) | Maximum number of sentences to export (default: `5000`) |
+
+---
+
+#### LLM-Based Distillation Dataset Generation - Instruction-Response Pairs
+
+To generate instruction-response training pairs from cleaned legal documents using Llama-2-7b-chat, open and run the notebook:
+
+```
+Scripts/ProccessDataTrainning/GeneratingDataWithLLM.ipynb
+```
+
+**Prerequisites:**
+
+- A GPU-enabled environment (e.g., Google Colab with CUDA)
+- A Hugging Face account with access to `meta-llama/Llama-2-7b-chat-hf`
+- Authentication via `huggingface_hub login()`
+
+**Configuration (editable in the notebook):**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LAWS_FOLDER` | `dataCleaned/Laws` | Directory containing cleaned TXT files |
+| `OUTPUT_FILE` | `dataCleaned/datasetTrain.json` | Output JSON file path |
+| `max_files` | `2` | Maximum number of documents to process |
+| `temperature` | `0.2` | Sampling temperature for generation |
+| `max_new_tokens` | `3000` | Maximum tokens generated per document |
+
+**Output format:**
+
+```json
+{
+  "data": [
+    {
+      "instruction": "¿Cuál es la idea central de esta ley?",
+      "context": "",
+      "response": "La ley establece..."
+    }
+  ]
+}
+```
+
+**Note:** Only documents that produce exactly 10 valid examples are included in the final dataset. Documents that fail parsing or validation are skipped with a diagnostic message.
 
 ---
 
