@@ -8,3 +8,5 @@ dataCleaned
 dataCleanedExample
 __pycache__
 .deepeval
+pyproject.toml
+.ruff_cache

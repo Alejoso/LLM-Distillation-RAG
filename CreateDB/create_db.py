@@ -1,12 +1,14 @@
-from langchain_community.document_loaders import DirectoryLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_core.documents import Document
-from langchain_chroma import Chroma
-import shutil
-import os
-from pathlib import Path
 import logging
+import os
+import shutil
 from collections import defaultdict
+from pathlib import Path
+
+from langchain_chroma import Chroma
+from langchain_community.document_loaders import DirectoryLoader
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
 from CreateDB.define_BGEM3_embeddings import BgeM3Embeddings
 
 DATA_PATH = "../dataCleanedExample/Laws"
@@ -47,7 +49,7 @@ def get_metadata_arguments(documents: list[Document]):
         source = doc.metadata.get("source", "")
         source_file = Path(source).name if source else None
 
-        textMetadata = [l for l in doc.page_content.splitlines() if l.strip()]
+        textMetadata = [line for line in doc.page_content.splitlines() if line.strip()]
         first5 = textMetadata[:12]
 
         # The first 11 lines of each document is important data which is going to be saved to the chunk metadata

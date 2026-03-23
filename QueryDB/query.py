@@ -1,27 +1,29 @@
 # Making the query work
-import openai
-from dotenv import load_dotenv
-import os
-from langchain_openai import ChatOpenAI
-from langchain_chroma import Chroma
 import argparse
-from langchain_core.prompts import ChatPromptTemplate
-
-# Evaluation metrics
-from deepeval import evaluate
-from deepeval.test_case import LLMTestCase
-from deepeval.metrics import ContextualRelevancyMetric
-from deepeval.metrics import ContextualRecallMetric
-from deepeval.metrics import ContextualPrecisionMetric
-from deepeval.models import OllamaModel
-
-# Types
-from typing import List, Tuple, Dict, Any, Optional
-from langchain_core.documents import Document
+import os
 
 # Other .py files
 import sys
 from pathlib import Path
+
+# Types
+from typing import Any, Dict, List
+
+import openai
+
+# Evaluation metrics
+from deepeval import evaluate
+from deepeval.metrics import (
+    ContextualPrecisionMetric,
+    ContextualRecallMetric,
+    ContextualRelevancyMetric,
+)
+from deepeval.models import OllamaModel
+from deepeval.test_case import LLMTestCase
+from dotenv import load_dotenv
+from langchain_chroma import Chroma
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 

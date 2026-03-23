@@ -1,4 +1,5 @@
-from typing import List, Tuple, Dict, Any
+from typing import Any, Dict, List, Tuple
+
 from langchain_core.documents import Document
 
 
