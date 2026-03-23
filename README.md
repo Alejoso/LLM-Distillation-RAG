@@ -7,14 +7,6 @@ Here it says that *BGE (BAAI General Embedding)* is really good for multilingual
 
 Hugging face page of the model: [Here](https://huggingface.co/BAAI/bge-m3)
 
-
-### Creating the chunks
-
-RecursiveCharacterTextSplitter.from_tiktoken_encoder
-
-We defined that using the tiktoken encoder migth be a good aproach. This tokens differ from the tokenizer of the embedding model that we are using.
-The number of tokens goes higher than the ones from BGE, so we wont have problems getting a bigger token size than the model lets us to embed when retriving the chunks. 
-
 ### How does the metadata look
 
 {
@@ -54,3 +46,10 @@ Implemented reranking for better context retrival
 ### Metrics
 
 https://www.confident-ai.com/blog/rag-evaluation-metrics-answer-relevancy-faithfulness-and-more#retrieval-evaluation-metrics
+
+### Have Ollama installed and running
+
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull qwen2.5:7b-instruct
+ollama list
+curl http://127.0.0.1:11434/api/tags

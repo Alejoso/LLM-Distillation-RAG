@@ -1,10 +1,14 @@
 from typing import List, Tuple, Dict, Any
 from langchain_core.documents import Document
 
+
 class Reranker:
     def __init__(self):
         from FlagEmbedding import FlagReranker
-        self.reranker = FlagReranker("BAAI/bge-reranker-v2-m3", use_fp16=True) # Setting use_fp16 to True speeds up computation with a slight performance degradation
+
+        self.reranker = FlagReranker(
+            "BAAI/bge-reranker-v2-m3", use_fp16=True
+        )  # Setting use_fp16 to True speeds up computation with a slight performance degradation
 
     def rerank_similarity_results(
         self,
@@ -17,11 +21,11 @@ class Reranker:
             return []
 
         docs = [doc for doc, _ in results]
-        passages = [doc.page_content for doc in docs] # Get the retrieved chunk's text
+        passages = [doc.page_content for doc in docs]  # Get the retrieved chunk's text
 
         # Rerank with the compute_score() function
         pairs = [[query, p] for p in passages]
-        scores = self.reranker.compute_score(pairs) 
+        scores = self.reranker.compute_score(pairs)
 
         # Build the return
         ranked: List[Dict[str, Any]] = []
