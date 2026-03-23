@@ -22,12 +22,13 @@ from langchain_core.documents import Document
 # Other .py files
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[1])) 
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from CreateDB.define_BGEM3_embeddings import BgeM3Embeddings
 from QueryDB.reranker_BGE import Reranker
 
-CHROMA_PATH  = "../chroma"
+CHROMA_PATH = "../chroma"
 
 PROMPT_TEMPLATE = """
 Answer the question based only on the following context:
@@ -40,15 +41,16 @@ Answer the question based on the above context: {question}
 """
 
 load_dotenv()
-openai.api_key = os.environ['OPENAI_API_KEY']
+openai.api_key = os.environ["OPENAI_API_KEY"]
 embedding_model = BgeM3Embeddings()
 reranker = Reranker()
 
 judge_model = OllamaModel(
-    model="qwen2.5:7b-instruct",   # también podrías probar "llama3.1"
+    model="qwen2.5:7b-instruct",  # qwen3 probar
     base_url="http://localhost:11434",
-    temperature=0
+    temperature=0,
 )
+
 
 # Get a list of string for using it in the metrics evaluators
 def ranked_to_retrieval_context(
@@ -65,90 +67,104 @@ def ranked_to_retrieval_context(
         context.append(text)
     return context
 
-def contextual_relevancy(query_text: str , actual_output: str , retrieval_context: List[str]):
+
+def contextual_relevancy(
+    query_text: str, actual_output: str, retrieval_context: List[str]
+):
     metric = ContextualRelevancyMetric(
-        threshold=0.7, 
-        model=judge_model,
-        include_reason=True
+        threshold=0.7, model=judge_model, include_reason=True
     )
 
     test_case = LLMTestCase(
         input=query_text,
         actual_output=actual_output,
-        retrieval_context=retrieval_context
+        retrieval_context=retrieval_context,
     )
 
     return evaluate(test_cases=[test_case], metrics=[metric])
 
-def contextual_recall(query_text:str , expected_output: str , actual_output: str , retrieval_context: List[str]):
+
+def contextual_recall(
+    query_text: str,
+    expected_output: str,
+    actual_output: str,
+    retrieval_context: List[str],
+):
     metric = ContextualRecallMetric(
-        threshold=0.7, 
-        model=judge_model,
-        include_reason=True
+        threshold=0.7, model=judge_model, include_reason=True
     )
     test_case = LLMTestCase(
         input=query_text,
         actual_output=actual_output,
         expected_output=expected_output,
-        retrieval_context=retrieval_context
+        retrieval_context=retrieval_context,
     )
     return evaluate(test_cases=[test_case], metrics=[metric])
 
-def contextual_precision(query_text:str , expected_output: str , actual_output: str , retrieval_context: List[str]):
+
+def contextual_precision(
+    query_text: str,
+    expected_output: str,
+    actual_output: str,
+    retrieval_context: List[str],
+):
     metric = ContextualPrecisionMetric(
-        threshold=0.7, 
-        model=judge_model,
-        include_reason=True
+        threshold=0.7, model=judge_model, include_reason=True
     )
     test_case = LLMTestCase(
         input=query_text,
         actual_output=actual_output,
         expected_output=expected_output,
-        retrieval_context=retrieval_context
+        retrieval_context=retrieval_context,
     )
     return evaluate(test_cases=[test_case], metrics=[metric])
-    
+
+
 def main():
     # Define a parser for inputing the information on the arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("query_text" , type=str , help="The query text")
+    parser.add_argument("query_text", type=str, help="The query text")
     args = parser.parse_args()
     query_text = args.query_text
 
-    db = Chroma(persist_directory=CHROMA_PATH , embedding_function= embedding_model)
+    db = Chroma(persist_directory=CHROMA_PATH, embedding_function=embedding_model)
 
     # Do the similatiry and extract 10 results, then Rerank, getting only the 6 best
-    results = db.similarity_search_with_relevance_scores(query_text , k = 10)
-    ranked_chunks = reranker.rerank_similarity_results(query_text , results, 6)
+    results = db.similarity_search_with_relevance_scores(query_text, k=10)
+    ranked_chunks = reranker.rerank_similarity_results(query_text, results, 6)
+    formatted_chunks = ranked_to_retrieval_context(ranked_chunks)
 
     if len(ranked_chunks) == 0:
         print("Unable to find mathching results")
         return
-        
-    context_text = "\n\n---\n\n".join([doc.page_content for doc, _ in results])
-    prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
-    prompt = prompt_template.format(context = context_text , question = query_text)
 
-    model = ChatOpenAI(
-        model="gpt-5-nano"
-    )
+    context_text = "\n\n---\n\n".join([chunk["text"] for chunk in ranked_chunks])
+    prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
+    prompt = prompt_template.format(context=context_text, question=query_text)
+
+    model = ChatOpenAI(model="gpt-5-nano")
     response_text = model.invoke(prompt)
 
-    sources = [doc.metadata.get("source" , None) for doc, _ in results]
+    sources = [chunk["metadata"].get("source", None) for chunk in ranked_chunks]
     formatted_response = f"Response: {response_text.text}\nSources: {sources}"
     print(formatted_response)
 
-    formatted_chunks_for_metrics = ranked_to_retrieval_context(ranked_chunks)
-
-    relevancy_score = contextual_relevancy(query_text , response_text.text , formatted_chunks_for_metrics)
+    relevancy_score = contextual_relevancy(
+        query_text, response_text.text, formatted_chunks
+    )
     print(f"Contextual relevancy score {relevancy_score}")
 
     expected_response = "La Ley 288 de 1882 abrió un crédito suplemental de 80,000 pesos, imputable al Departamento de la Deuda Nacional, capítulo 55, artículo 184 del Presupuesto de Gastos de la vigencia 1881-1882."
-    recall_score = contextual_recall(query_text , expected_response , response_text.text , formatted_chunks_for_metrics)
+    recall_score = contextual_recall(
+        query_text, expected_response, response_text.text, formatted_chunks
+    )
     print(f"Contextual recall score {recall_score}")
 
-    precision_score = contextual_precision(query_text , expected_response , response_text.text , formatted_chunks_for_metrics)
+    precision_score = contextual_precision(
+        query_text, expected_response, response_text.text, formatted_chunks
+    )
     print(f"Contextual precision score {precision_score}")
+
 
 if __name__ == "__main__":
     main()
