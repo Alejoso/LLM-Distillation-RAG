@@ -113,7 +113,7 @@ def add_info_to_chunks(chunk, prefix, suffix):
     chunk.page_content = f"{prefix}\n{chunk.page_content}\n{suffix}"
 
 
-# Split text for making the chunking (In thought of getting top k = 7)
+# Split text for making the chunking (In thought of getting top k = 6)
 def split_text(documents: list[Document]):
     logging.info("Creating chunks...")
 
