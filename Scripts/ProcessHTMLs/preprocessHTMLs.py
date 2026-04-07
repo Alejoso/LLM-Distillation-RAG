@@ -2,10 +2,13 @@ import argparse
 import re
 import sys
 from pathlib import Path
+
 from bs4 import BeautifulSoup
 from text_normalization import normalize_body
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from CleanlinessMetrics.compute_metrics import compute_quality_score
+
 
 def strip_unwanted_elements(soup):
     # Remove non-content or boilerplate sections.
@@ -13,9 +16,13 @@ def strip_unwanted_elements(soup):
         tag.decompose()
 
     # Remove menus, sliders, TOC, and similar UI blocks.
-    for tag in soup.find_all(["table", "div"], id=re.compile(r"toc|Resumen|NotasDestino", re.IGNORECASE)):
+    for tag in soup.find_all(
+        ["table", "div"], id=re.compile(r"toc|Resumen|NotasDestino", re.IGNORECASE)
+    ):
         tag.decompose()
-    for tag in soup.find_all(["div"], class_=re.compile(r"slider|toc|resumenvigencias", re.IGNORECASE)):
+    for tag in soup.find_all(
+        ["div"], class_=re.compile(r"slider|toc|resumenvigencias", re.IGNORECASE)
+    ):
         tag.decompose()
 
     # Remove elements that are hidden by inline styles.
@@ -31,10 +38,13 @@ def strip_unwanted_elements(soup):
         tag.decompose()
 
     # Remove paragraphs or spans that only announce auxiliary text blocks.
-    for text_node in soup.find_all(string=re.compile(r"TEXTO\s+CORRESPONDIENTE\s+A", re.IGNORECASE)):
+    for text_node in soup.find_all(
+        string=re.compile(r"TEXTO\s+CORRESPONDIENTE\s+A", re.IGNORECASE)
+    ):
         parent = text_node.parent
         if parent:
             parent.decompose()
+
 
 # Removes metadata lines from the body text based on the extracted metadata values.
 def remove_metadata_lines(body: str, source: str, subtipo: str) -> str:
@@ -65,16 +75,17 @@ def remove_metadata_lines(body: str, source: str, subtipo: str) -> str:
 
     return "\n".join(cleaned)
 
-# Main function to process all HTML files in the input directory and save cleaned TXT files in the output directory.
+
+# Main function to process all HTML files in the input directory and save
+# cleaned TXT files in the output directory.
 def process_directory(input_dir: Path, output_dir: Path):
     output_dir.mkdir(parents=True, exist_ok=True)
     unusable_dir = output_dir.parent / "unusable_files"
     unusable_dir.mkdir(parents=True, exist_ok=True)
 
-    
     html_files = list(input_dir.glob("*.html"))
     print(f"Found {len(html_files)} HTML files.\n")
-    
+
     usable_count = 0
     unusable_count = 0
 
@@ -87,7 +98,9 @@ def process_directory(input_dir: Path, output_dir: Path):
         for span in soup.find_all("span", attrs={"field": True}):
             field = span.get("field")
             if field:
-                metadata[field] = normalize_body(span.get_text(" ", strip=True), apply_body_rules=False)
+                metadata[field] = normalize_body(
+                    span.get_text(" ", strip=True), apply_body_rules=False
+                )
 
         strip_unwanted_elements(soup)
 
@@ -104,7 +117,7 @@ def process_directory(input_dir: Path, output_dir: Path):
             metadata.get("documento_fuente", ""),
             metadata.get("subtipo", ""),
         )
-        
+
         # Calcula score de calidad
         metrics = compute_quality_score(body)
 
@@ -118,16 +131,18 @@ def process_directory(input_dir: Path, output_dir: Path):
         final_text += "ENTIDAD: " + metadata.get("entidad_emisora", "") + "\n"
         final_text += "SUBTIPO: " + metadata.get("subtipo", "") + "\n"
         final_text += "FECHA_EXPEDICION: " + metadata.get("fecha_expedicion", "") + "\n"
-        final_text += "FECHA_PUBLICACION: " + metadata.get("fecha_diario_oficial", "") + "\n"
+        final_text += (
+            "FECHA_PUBLICACION: " + metadata.get("fecha_diario_oficial", "") + "\n"
+        )
         final_text += "FUENTE: " + metadata.get("documento_fuente", "") + "\n"
         final_text += f"QUALITY_SCORE: {metrics['quality_score']}\n"
         final_text += f"QUALITY_STATUS: {metrics['quality_status']}\n"
-        
+
         final_text += "CONTENIDO:\n"
         final_text += body
 
         # Determine output directory based on quality score
-        if metrics['quality_score'] < 70:
+        if metrics["quality_score"] < 70:
             output_path = unusable_dir / file_path.with_suffix(".txt").name
             unusable_count += 1
             status_msg = f"[UNUSABLE - Score: {metrics['quality_score']}]"
@@ -141,12 +156,14 @@ def process_directory(input_dir: Path, output_dir: Path):
 
         print(f"Processed {file_path.name} {status_msg}")
 
-    print(f"Processing complete:")
+    print("Processing complete:")
     print(f"- Usable files (score >= 70): {usable_count}")
     print(f"- Unusable files (score < 70): {unusable_count}")
     print(f"Total files processed: {len(html_files)}")
 
-# Entry point for command-line execution, allowing specification of input and output directories.
+
+# Entry point for command-line execution, allowing specification of input and
+# output directories.
 def main():
     parser = argparse.ArgumentParser(
         description="Clean and convert HTML legal documents to structured TXT format"

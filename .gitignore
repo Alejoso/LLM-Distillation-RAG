@@ -3,3 +3,6 @@
 /dataCleaned
 DataSet.tar.gz
 datasetTrain.json
+.ruff_cache/
+pyproject.toml
+LLM-Distillation-RAG-Wiki.wiki/

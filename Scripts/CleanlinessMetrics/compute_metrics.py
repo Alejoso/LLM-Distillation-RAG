@@ -1,16 +1,18 @@
 import re
-from typing import Dict
 import sys
 from pathlib import Path
+from typing import Dict
+
 
 # Calculates the ratio of lines with 3 or fewer characters
 def short_lines_ratio(text: str) -> float:
-    lines = [l for l in text.split("\n") if l.  strip()]
+    lines = [line for line in text.split("\n") if line.strip()]
     if not lines:
         return 0.0
 
-    short = sum(1 for l in lines if len(l.strip()) <= 3)
+    short = sum(1 for line in lines if len(line.strip()) <= 3)
     return short / len(lines)
+
 
 # Calculates the ratio of fragmented words (words separated by spaces)
 def fragmented_words_ratio(text: str) -> float:
@@ -20,6 +22,7 @@ def fragmented_words_ratio(text: str) -> float:
 
     fragmented = re.findall(r"\b(\w\s){2,}\w\b", text)
     return len(fragmented) / len(words)
+
 
 # Validates the integrity of legal headers and structured elements
 def header_integrity_ratio(text: str) -> float:
@@ -134,7 +137,8 @@ def classify_score(score: int) -> str:
         return "DEFECTIVE"
 
 
-# Computes overall quality score and returns metrics with individual ratios and classification
+# Computes overall quality score and returns metrics with individual ratios
+# and classification
 def compute_quality_score(text: str) -> Dict:
 
     line_ratio = short_lines_ratio(text)
@@ -142,9 +146,9 @@ def compute_quality_score(text: str) -> Dict:
     header_ratio = header_integrity_ratio(text)
 
     total_score = (
-        int(score_lines(line_ratio) * 45 / 30) +
-        int(score_fragmentation(frag_ratio) * 45 / 30) +
-        int(score_structure(header_ratio) * 10 / 25)
+        int(score_lines(line_ratio) * 45 / 30)
+        + int(score_fragmentation(frag_ratio) * 45 / 30)
+        + int(score_structure(header_ratio) * 10 / 25)
     )
 
     return {
@@ -153,12 +157,12 @@ def compute_quality_score(text: str) -> Dict:
         "header_integrity": round(header_ratio, 4),
         "quality_score": total_score,
         "quality_status": classify_score(total_score),
-        "version": "V1"
+        "version": "V1",
     }
+
 
 # Example usage: python compute_metrics.py path/to/document.txt
 if __name__ == "__main__":
-
     if len(sys.argv) != 2:
         print("Usage: python compute_metrics.py file.txt")
         sys.exit(1)

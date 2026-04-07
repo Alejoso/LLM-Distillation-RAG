@@ -47,21 +47,24 @@ def normalize_body(text: str, apply_body_rules: bool = True) -> str:
     )
     # Merge ordinal marks that are split to the next line (e.g., "1\n°").
     text = re.sub(r"(\d+)\s*\n\s*([º°])", r"\1\2", text)
-    # Remove standalone hyphen/quote lines and strip hyphen bullets in headers/signatures.
+    # Remove standalone hyphen/quote lines and strip hyphen bullets
+    # in headers/signatures.
     text = re.sub(r"^\s*[-–—]+\s*$", "", text, flags=re.MULTILINE)
     text = re.sub(r"^\s*\"+\s*$", "", text, flags=re.MULTILINE)
     text = re.sub(r"^\s*-\s*(?=[A-ZÁÉÍÓÚÑ])", "", text, flags=re.MULTILINE)
     text = re.sub(r"\s*-\s*(?=(?:El|La|Los|Las)\s)", " ", text)
     # Separate list items that are on the same line (e.g., "text; b)" -> "text;\nb)")
     text = re.sub(r"([;.])\s+([a-z]\))", r"\1\n\2", text)
-    # Join roman numerals in parentheses with their content (e.g., "(i)\nText" -> "(i) Text").
+    # Join roman numerals in parentheses with their content
+    # (e.g., "(i)\nText" -> "(i) Text").
     text = re.sub(
         r"^\s*\(([ivxlcdm]+)\)\s*\n+",
         r"(\1) ",
         text,
         flags=re.MULTILINE | re.IGNORECASE,
     )
-    # Join lowercase letters in parentheses with their content (e.g., "a.\nText" or "(a)\nText" -> "a. Text" or "(a) Text").
+    # Join lowercase letters in parentheses with their content
+    # (e.g., "a.\nText" or "(a)\nText" -> "a. Text" or "(a) Text").
     text = re.sub(
         r"^\s*([a-z])\.\s*\n+",
         r"\1. ",
@@ -130,7 +133,8 @@ def normalize_body(text: str, apply_body_rules: bool = True) -> str:
         text,
         flags=re.MULTILINE,
     )
-    # If a roman numeral line is followed by a single letter and a word, fold the letter into the word.
+    # If a roman numeral line is followed by a single letter and a word,
+    # fold the letter into the word.
     text = re.sub(
         r"^([IVXLCDM])\s*\n([A-ZÁÉÍÓÚÑ])\s*\n([A-ZÁÉÍÓÚÑ]{2,})",
         r"\1\n\2\3",

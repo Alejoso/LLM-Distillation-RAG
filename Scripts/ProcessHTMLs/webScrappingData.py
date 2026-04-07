@@ -1,10 +1,11 @@
 import argparse
-import requests
-from bs4 import BeautifulSoup
-from pathlib import Path
 import time
-from urllib.parse import urlparse, parse_qs
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse
+
+import requests
 import urllib3
+from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -21,9 +22,7 @@ def run_scraper(
     failed_log,
 ):
     # Define headers to mimic a browser to evit potential blocking by the server
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+    headers = {"User-Agent": "Mozilla/5.0"}
 
     # Retry/backoff configuration to handle flaky server responses
     connect_timeout = 15
@@ -83,7 +82,8 @@ def run_scraper(
             continue
 
         try:
-            # Make a GET request to the document URL with a timeout and without SSL verification
+            # Make a GET request to the document URL with a timeout
+            # and without SSL verification
             page = session.get(
                 url,
                 headers=headers,
@@ -112,7 +112,7 @@ def run_scraper(
 
 
 def main():
-    
+
     # Set up command-line argument parsing for flexible configuration of the scraper
     parser = argparse.ArgumentParser(
         description="Download HTML documents from SUIN sitemap"
@@ -167,6 +167,7 @@ def main():
         backoff_factor=args.backoff,
         failed_log=Path(args.failed_log),
     )
+
 
 if __name__ == "__main__":
     main()
