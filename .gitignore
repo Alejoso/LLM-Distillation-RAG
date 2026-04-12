@@ -6,3 +6,7 @@ datasetTrain.json
 .ruff_cache/
 pyproject.toml
 LLM-Distillation-RAG-Wiki.wiki/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage

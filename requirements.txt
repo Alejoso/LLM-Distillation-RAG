@@ -5,3 +5,6 @@ lxml
 spacy
 ollama
 matplotlib
+# Testing
+pytest
+pytest-cov
