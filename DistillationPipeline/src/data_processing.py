@@ -18,28 +18,23 @@ def create_sample_raw_data(path):
     sample_data = [
         {
             "instruction": "Explain what machine learning is.",
-            "context": "",
-            "response": "Machine learning is a field of artificial intelligence that allows systems to learn from data."
+            "context": ""
         },
         {
             "instruction": "What is overfitting?",
-            "context": "",
-            "response": "Overfitting occurs when a model learns the training data too well and fails to generalize."
+            "context": ""
         },
         {
             "instruction": "Define neural networks.",
-            "context": "",
-            "response": "Neural networks are models inspired by the human brain composed of layers of interconnected nodes."
+            "context": ""
         },
         {
             "instruction": "Explain supervised learning.",
-            "context": "",
-            "response": "Supervised learning is when a model is trained using labeled data."
+            "context": ""
         },
         {
             "instruction": "What is a dataset?",
-            "context": "",
-            "response": "A dataset is a collection of data used to train or evaluate a model."
+            "context": ""
         }
     ]
 
@@ -72,18 +67,18 @@ def process_dataset(config):
             print(f"Invalid item at index {i}: {item}")
             continue
 
-        if "instruction" not in item or "response" not in item:
-            print(f"Missing keys in item {i}: {item}")
+        if "instruction" not in item:
+            print(f"Missing 'instruction' in item {i}: {item}")
             continue
 
         instruction = item["instruction"]
         context = item.get("context", "")
-        response = item["response"]
 
         processed.append({
             "id": i,
-            "prompt": build_prompt(instruction, context),
-            "response": response
+            "instruction": instruction,
+            "context": context,
+            "prompt": build_prompt(instruction, context)
         })
 
     save_json(processed, config["processed_path"])
