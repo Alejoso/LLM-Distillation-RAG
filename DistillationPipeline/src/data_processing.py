@@ -14,33 +14,20 @@ def build_prompt(instruction: str) -> str:
 
 
 def create_sample_raw_data(path):
-    sample_data = [
-        {
-            "instruction": "Explain what machine learning is.",
-            "context": "",
-            "response": ""
-        },
-        {
-            "instruction": "What is overfitting?",
-            "context": "",
-            "response": ""
-        },
-        {
-            "instruction": "Define neural networks.",
-            "context": "",
-            "response": ""
-        },
-        {
-            "instruction": "Explain supervised learning.",
-            "context": "",
-            "response": ""
-        },
-        {
-            "instruction": "What is a dataset?",
-            "context": "",
-            "response": ""
-        }
-    ]
+    sample_data = {
+        "data": [
+            {
+                "instruction": "Explain what machine learning is.",
+                "context": "",
+                "response": ""
+            },
+            {
+                "instruction": "What is overfitting?",
+                "context": "",
+                "response": ""
+            }
+        ]
+    }
 
     save_json(sample_data, path)
     print(f"Sample raw dataset created at: {path}")

@@ -31,7 +31,7 @@ CONFIG = {
     "final_model_dir": BASE_DIR / "outputs" / "final_model",
 
     # Teacher behavior
-    "use_rag_for_teacher": False,
+    "use_rag_for_teacher": True,
 
     # RAG config
     "rag_chroma_path": BASE_DIR / "chroma",
