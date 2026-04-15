@@ -39,6 +39,18 @@ def train_student(config, student, student_tokenizer, device):
         global_step = checkpoint["step"]
         print("Checkpoint loaded.")
 
+    # Validate teacher/student vocab compatibility
+    sample_batch = next(iter(loader))
+    teacher_vocab_size = sample_batch["teacher_logits"].shape[-1]
+    student_vocab_size = student.config.vocab_size
+
+    if teacher_vocab_size != student_vocab_size:
+        raise ValueError(
+            f"Teacher/student vocab mismatch: "
+            f"teacher_logits vocab={teacher_vocab_size}, "
+            f"student vocab={student_vocab_size}"
+        )
+
     student.train()
 
     alpha = config["alpha"]
@@ -46,6 +58,9 @@ def train_student(config, student, student_tokenizer, device):
 
     for epoch in range(start_epoch, config["epochs"]):
         epoch_loss = 0.0
+        valid_batches = 0
+        last_soft_loss = None
+        last_hard_loss = None
 
         for batch in loader:
             global_step += 1
@@ -99,6 +114,9 @@ def train_student(config, student, student_tokenizer, device):
             optimizer.step()
 
             epoch_loss += loss.item()
+            valid_batches += 1
+            last_soft_loss = soft_loss.item()
+            last_hard_loss = hard_loss.item()
 
             if global_step % config["save_steps"] == 0:
                 torch.save({
@@ -120,12 +138,15 @@ def train_student(config, student, student_tokenizer, device):
             with log_file.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(log, ensure_ascii=False) + "\n")
 
-        avg_epoch_loss = epoch_loss / max(len(loader), 1)
+        avg_epoch_loss = epoch_loss / max(valid_batches, 1)
+        soft_str = f"{last_soft_loss:.4f}" if last_soft_loss is not None else "N/A"
+        hard_str = f"{last_hard_loss:.4f}" if last_hard_loss is not None else "N/A"
+
         print(
             f"Epoch {epoch + 1}/{config['epochs']} | "
             f"avg_loss: {avg_epoch_loss:.4f} | "
-            f"soft: {soft_loss.item():.4f} | "
-            f"hard: {hard_loss.item():.4f}"
+            f"soft: {soft_str} | "
+            f"hard: {hard_str}"
         )
 
     final_model_dir.mkdir(parents=True, exist_ok=True)

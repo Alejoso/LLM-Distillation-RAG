@@ -3,8 +3,8 @@ import torch
 from src.data_processing import build_prompt
 
 
-def ask_model(model, tokenizer, device, instruction, context="", max_new_tokens=128):
-    prompt = build_prompt(instruction, context)
+def ask_model(model, tokenizer, device, instruction, max_new_tokens=128):
+    prompt = build_prompt(instruction)
 
     inputs = tokenizer(
         prompt,

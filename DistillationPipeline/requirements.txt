@@ -4,3 +4,14 @@ datasets
 accelerate
 huggingface_hub
 pyyaml
+langchain
+langchain-community
+unstructured
+chromadb
+openai
+langchain-openai
+dotenv
+langchain-chroma
+transformers<5
+FlagEmbedding
+deepeval

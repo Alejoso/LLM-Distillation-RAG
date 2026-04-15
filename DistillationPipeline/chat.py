@@ -12,13 +12,11 @@ def main():
         if instruction.lower() in {"exit", "quit"}:
             break
 
-        context = input("Context (optional): ").strip()
         response = ask_model(
             model=model,
             tokenizer=tokenizer,
             device=device,
             instruction=instruction,
-            context=context,
             max_new_tokens=CONFIG["max_new_tokens"]
         )
 

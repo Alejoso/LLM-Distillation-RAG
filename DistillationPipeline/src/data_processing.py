@@ -3,12 +3,11 @@ from pathlib import Path
 from .utils import load_json, save_json
 
 
-def build_prompt(instruction: str, context: str = "") -> str:
+def build_prompt(instruction: str) -> str:
+    instruction = (instruction or "").strip()
+
     return f"""### Instruction:
 {instruction}
-
-### Context:
-{context}
 
 ### Response:
 """
@@ -18,23 +17,28 @@ def create_sample_raw_data(path):
     sample_data = [
         {
             "instruction": "Explain what machine learning is.",
-            "context": ""
+            "context": "",
+            "response": ""
         },
         {
             "instruction": "What is overfitting?",
-            "context": ""
+            "context": "",
+            "response": ""
         },
         {
             "instruction": "Define neural networks.",
-            "context": ""
+            "context": "",
+            "response": ""
         },
         {
             "instruction": "Explain supervised learning.",
-            "context": ""
+            "context": "",
+            "response": ""
         },
         {
             "instruction": "What is a dataset?",
-            "context": ""
+            "context": "",
+            "response": ""
         }
     ]
 
@@ -67,18 +71,15 @@ def process_dataset(config):
             print(f"Invalid item at index {i}: {item}")
             continue
 
-        if "instruction" not in item:
-            print(f"Missing 'instruction' in item {i}: {item}")
-            continue
+        instruction = (item.get("instruction") or "").strip()
 
-        instruction = item["instruction"]
-        context = item.get("context", "")
+        if not instruction:
+            print(f"Missing or empty 'instruction' in item {i}: {item}")
+            continue
 
         processed.append({
             "id": i,
-            "instruction": instruction,
-            "context": context,
-            "prompt": build_prompt(instruction, context)
+            "instruction": instruction
         })
 
     save_json(processed, config["processed_path"])

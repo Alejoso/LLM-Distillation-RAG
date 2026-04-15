@@ -18,7 +18,9 @@ class DistillationDataset(Dataset):
     def __getitem__(self, idx):
         sample = self.data[idx]
 
-        full_text = sample["prompt"] + sample["teacher_output"]
+        prompt = sample["prompt"]
+        teacher_output = sample["teacher_output"]
+        full_text = prompt + teacher_output
 
         tokens = self.tokenizer(
             full_text,
@@ -29,7 +31,7 @@ class DistillationDataset(Dataset):
         )
 
         prompt_tokens = self.tokenizer(
-            sample["prompt"],
+            prompt,
             return_tensors="pt",
             truncation=True,
             max_length=self.max_len
@@ -37,7 +39,15 @@ class DistillationDataset(Dataset):
 
         input_ids = tokens["input_ids"].squeeze(0)
         attention_mask = tokens["attention_mask"].squeeze(0)
+
         teacher_logits = torch.tensor(sample["logits"], dtype=torch.float32)
+
+        if teacher_logits.size(0) > self.max_len:
+            teacher_logits = teacher_logits[:self.max_len]
+        elif teacher_logits.size(0) < self.max_len:
+            pad_shape = (self.max_len - teacher_logits.size(0), teacher_logits.size(1))
+            padding = torch.zeros(pad_shape, dtype=teacher_logits.dtype)
+            teacher_logits = torch.cat([teacher_logits, padding], dim=0)
 
         response_mask = torch.zeros(self.max_len, dtype=torch.float32)
         prompt_len = min(prompt_tokens["input_ids"].size(1), self.max_len)
@@ -52,4 +62,5 @@ class DistillationDataset(Dataset):
             "attention_mask": attention_mask,
             "teacher_logits": teacher_logits,
             "response_mask": response_mask,
+            "used_rag": sample.get("used_rag", False),
         }

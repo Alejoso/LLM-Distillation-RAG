@@ -1,27 +1,22 @@
 [
   {
     "id": 0,
-    "prompt": "### Instruction:\nExplain what machine learning is.\n\n### Context:\n\n\n### Response:\n",
-    "response": "Machine learning is a field of artificial intelligence that allows systems to learn from data."
+    "instruction": "Explain what machine learning is."
   },
   {
     "id": 1,
-    "prompt": "### Instruction:\nWhat is overfitting?\n\n### Context:\n\n\n### Response:\n",
-    "response": "Overfitting occurs when a model learns the training data too well and fails to generalize."
+    "instruction": "What is overfitting?"
   },
   {
     "id": 2,
-    "prompt": "### Instruction:\nDefine neural networks.\n\n### Context:\n\n\n### Response:\n",
-    "response": "Neural networks are models inspired by the human brain composed of layers of interconnected nodes."
+    "instruction": "Define neural networks."
   },
   {
     "id": 3,
-    "prompt": "### Instruction:\nExplain supervised learning.\n\n### Context:\n\n\n### Response:\n",
-    "response": "Supervised learning is when a model is trained using labeled data."
+    "instruction": "Explain supervised learning."
   },
   {
     "id": 4,
-    "prompt": "### Instruction:\nWhat is a dataset?\n\n### Context:\n\n\n### Response:\n",
-    "response": "A dataset is a collection of data used to train or evaluate a model."
+    "instruction": "What is a dataset?"
   }
 ]
