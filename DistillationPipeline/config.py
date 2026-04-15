@@ -8,13 +8,13 @@ CONFIG = {
     "teacher_name": "meta-llama/Llama-2-7b-chat-hf",
     "student_name": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
 
-    "epochs": 1,
-    "batch_size": 1,
+    "epochs": 3,
+    "batch_size": 2,
     "lr": 2e-5,
     "temperature": 4.0,
     "alpha": 0.7,
-    "max_len": 64,
-    "max_new_tokens": 32,
+    "max_len": 2048,
+    "max_new_tokens": 512,
 
     "save_steps": 1000,
 
@@ -36,7 +36,7 @@ CONFIG = {
     # RAG config
     "rag_chroma_path": BASE_DIR / "chroma",
     "rag_top_k_initial": 10,
-    "rag_top_k_final": 6,
+    "rag_top_k_final": 2,
 }
 
 
@@ -44,3 +44,5 @@ def ensure_directories():
     (BASE_DIR / "data").mkdir(exist_ok=True)
     CONFIG["output_dir"].mkdir(exist_ok=True)
     CONFIG["checkpoint_dir"].mkdir(exist_ok=True)
+
+
