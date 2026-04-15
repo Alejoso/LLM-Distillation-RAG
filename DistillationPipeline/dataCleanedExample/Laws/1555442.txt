@@ -1,0 +1,29 @@
+TIPO: LEY
+NUMERO: 1
+ANIO: 1910
+ESTADO: Vigencia en Estudio
+ENTIDAD: ASAMBLEA NACIONAL CONSTITUYENTE Y LEGISLATIVA DE COLOMBIA
+SUBTIPO: LEY ORDINARIA
+FECHA_EXPEDICION: 
+FECHA_PUBLICACION: 04/06/1910
+FUENTE: DIARIO OFICIAL. AÑO XLVI. N. 14008. 4, JUNIO, 1910. PÁG. 1.
+QUALITY_SCORE: 90
+QUALITY_STATUS: HIGH
+CONTENIDO:
+LEY 1 DE 1910
+(mayo 05)
+por la cual se otorga una condonación
+La Asamblea Nacional Constituyente y Legislativa
+DECRETA:
+Artículo único.
+Condónase á favor del señor José Joaquín Molina, Recaudador Municipal de Hacienda Nacional de Carolina, el valor de trescientos sesenta y cinco kilos de sal marina, de que aparece responsable, por haber comprobado satisfactoriamente que la pérdida de la expresada cantidad de sal ocurrió por caso fortuito.
+Dada en Bogotá, á treinta y uno de Mayo de mil novecientos diez.
+El Presidente, RAMON ARANGO
+El Secretario, Marcelino Uribe Arango
+Poder Ejecutivo-Bogotá, Junio 1.°
+de 1910.
+Publíquese y ejecútese.
+(L. S.)
+RAMON GONZALEZ VALENCIA
+El Ministro del Tesoro encargado del Despacho de Hacienda, ANTONIO JOSÉ
+CADAVID

@@ -1,0 +1,34 @@
+TIPO: LEY
+NUMERO: 1
+ANIO: 1912
+ESTADO: Vigencia en Estudio
+ENTIDAD: CONGRESO DE LA REPÚBLICA
+SUBTIPO: LEY ORDINARIA
+FECHA_EXPEDICION: 
+FECHA_PUBLICACION: 21/08/1912
+FUENTE: DIARIO OFICIAL. AÑO XLVII. N. 14672. 21, AGOSTO, 1912. PÁG. 1.
+QUALITY_SCORE: 100
+QUALITY_STATUS: HIGH
+CONTENIDO:
+LEY 1 DE 1912
+(agosto 17)
+por la cual se honra la memoria del señor doctor don Felipe Angulo
+EL CONGRESO DE COLOMBIA
+DECRETA:
+Artículo 1°. Laméntase la muerte del distinguido ciudadano y eminente hombre público doctor Felipe Angulo, cuyos servicios a la patria le señalan puesto prominente entre los buenos hijos de Colombia.
+Artículo 2°. Por cuenta de la Nación se construirá en el cementerio de Bogotá, en el lote mandado comprar con tal objeto por la Asamblea de Cundinamarca, un monumento con el busto en mármol del ilustre republico. En el pedestal se grabara la siguiente inscripción:
+EL CONGRESO DE COLOMBIA
+A Felipe Angulo
+Ley 1ª de 1912.
+Artículo 3°. Por el Ministerio de Obras Publicas se dictaran las medidas conducentes al pronto cumplimiento de la presente Ley, y la partida que sea necesaria se tendrá por incluida en los Presupuestos de gastos de esta y de la próxima vigencia económica.
+Artículo 4°. Copia de esta ley se enviara con nota de estilo a la señora viuda de Angulo
+Dada en Bogotá a doce de Agosto de mil novecientos doce.
+El Presidente del Senado, JOSE VICENTE CONCHA
+El Presidente de la Cámara de Representantes, JORGE HOLGUIN
+El Secretario del Senado
+Bernardo Escovar
+El Secretario de la Cámara de Representantes, José de la Vega
+Poder ejecutivo-Bogotá, Agosto 17 de 1912.
+Publíquese y ejecútese
+CARLOS E. RESTREPO
+El Ministro de Gobierno, PEDRO M. CARREÑO

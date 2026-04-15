@@ -1,0 +1,35 @@
+TIPO: LEY
+NUMERO: 1
+ANIO: 1915
+ESTADO: Vigencia en Estudio
+ENTIDAD: CONGRESO DE LA REPÚBLICA
+SUBTIPO: LEY ORDINARIA
+FECHA_EXPEDICION: 
+FECHA_PUBLICACION: 18/08/1915
+FUENTE: DIARIO OFICIAL. AÑO LI. N. 15570. 18, AGOSTO, 1915. PÁG. 1.
+QUALITY_SCORE: 100
+QUALITY_STATUS: HIGH
+CONTENIDO:
+LEY 1 DE 1915
+(agosto 13)
+de honores al General José María Campo Serrano
+El Congreso de Colombia, Considerando:
+Que la muerte del señor General José María Campo Serrano, acaecida en la ciudad de Santa Marta, es justo motivo de duelo nacional;
+Que el General Campo Serrano presentó grandes servicios a la República tanto en lo civil como en lo militar;
+Que fue Gobernador de varios Departamentos, Representantes, Senador, Ministro de Estado y Presidente de la República;
+Que la Constitución vigente lleve su firma como Jefe del Estado que la sancionó, Decreta:
+Artículo 1° El Congreso de Colombia deplora el fallecimiento del distinguido ciudadano y meritorio hombre público señor General don José María Campo Serrano y recomienda sus virtudes como ejemplo a la posteridad.
+Artículo 2° En honor a su memoria la Nación colocará un retrato al óleo del General Campo Serrano, en uno de los salones del Senado, y en el cementerio de la ciudad de Santa Marta se erigirá un monumento de mármol donde se guarden sus restos, con esta inscripción:
+El Congreso de Colombia al General don José María Campo Serrano-1915
+Artículo 3° La partida necesaria para el cumplimiento de esta Ley se tendrá como incluida en el Presupuesto de gastos.
+Artículo 4° Un ejemplar auténtico de esta Ley será enviado a la familia del extinto.
+Dada en Bogotá a once de agosto de mil novecientos quince.
+El Presidente del Senado, Alejandro GARCIA
+El Presidente de la Cámara de Representantes, R. QUIJANO GOMEZ
+El Secretario del Senado, Carlos Tamayo
+El Secretario de la Cámara de Representantes, Fernando Restrepo Briceño
+Poder Ejecutivo Bogotá, agosto 13 de 1915
+Publíquese y Ejecútese.
+JOSE VICENTE CONCHA
+El Ministro de Gobierno
+Miguel ABADIA MENDEZ.
