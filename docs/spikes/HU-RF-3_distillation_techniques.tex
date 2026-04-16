@@ -1,0 +1,895 @@
+\documentclass[12pt]{article}
+
+\usepackage[es]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{longtable}
+\usepackage{hyperref}
+\usepackage{amssymb}
+\usepackage{verbatim}
+
+\geometry{margin=1in}
+
+\title{HU-RF-3 -- Técnicas de Destilación de LLMs}
+\author{}
+\date{}
+
+\begin{document}
+	\maketitle
+	\newpage
+	\tableofcontents
+	\newpage
+	
+	\section{Información General}
+	\begin{itemize}
+		\item Autor: Simón Sloan García Villa
+		\item Fecha: 22/03/2026
+		\item Sprint: 1
+		\item Estado: Completed
+	\end{itemize}
+	
+	\section{Descripción de la HU}
+	\textbf{Como} investigador, \\
+	\textbf{quiero} identificar y clasificar técnicas de destilación de LLMs aplicables al proyecto, \\
+	\textbf{para} seleccionar los métodos más adecuados al contexto.
+	
+	\section{Objetivo de la HU}
+	Analizar y comparar distintas técnicas de destilación de modelos de lenguaje para determinar cuáles son más adecuadas para el proyecto en términos de eficiencia, calidad de aprendizaje y viabilidad de implementación.
+	
+	\section{Contexto}
+	La destilación de modelos de lenguaje permite transferir conocimiento desde modelos grandes (teacher) a modelos más pequeños (student), reduciendo costos computacionales y facilitando el despliegue. Existen múltiples enfoques con diferentes trade-offs, por lo que es necesario analizarlos antes de definir la metodología del pipeline baseline.
+	
+	\section{Alcance}
+	
+	\subsection{Actividades Incluidas}
+	\begin{itemize}
+		\item Revisión de literatura sobre técnicas de destilación de LLMs
+		\item Identificación de enfoques relevantes (logits-based, feature-based, response-based)
+		\item Descripción técnica de cada técnica
+		\item Comparación entre técnicas según criterios definidos
+		\item Análisis crítico para selección de técnicas
+	\end{itemize}
+	
+	\subsection{Actividades Excluidas}
+	\begin{itemize}
+		\item Implementación de las técnicas
+		\item Entrenamiento de modelos
+		\item Evaluación experimental completa
+	\end{itemize}
+	
+	\subsection{Nivel de Profundidad Esperado}
+	\begin{itemize}
+		\item Explicación técnica del funcionamiento de cada técnica
+		\item Comparación estructurada entre alternativas
+		\item Justificación clara de la decisión tomada
+	\end{itemize}
+	
+	\subsection{Criterios de Calidad del Alcance}
+	\begin{itemize}
+		\item Se analizan múltiples técnicas
+		\item Existe comparación clara entre ellas
+		\item Se justifica la selección final
+	\end{itemize}
+	
+	\section{Criterios de Aceptación}
+	
+	\subsection*{CA1 -- Documento de síntesis de técnicas}
+	\textbf{Dado} la necesidad de identificar las técnicas de destilación de LLMs, \\
+	\textbf{cuando} se realice la revisión del estado del arte, \\
+	\textbf{entonces} debe existir un documento que describa las técnicas más utilizadas y sus características.
+	
+	\subsection*{CA2 -- Matriz de decisión comparativa}
+	\textbf{Dado} múltiples técnicas de destilación, \\
+	\textbf{cuando} se analicen criterios como complejidad y recursos, \\
+	\textbf{entonces} debe existir una matriz comparativa entre ellas.
+	
+	\subsection*{CA3 -- Decisión técnica}
+	\textbf{Dado} la evaluación de las técnicas, \\
+	\textbf{cuando} se seleccione una o varias, \\
+	\textbf{entonces} debe documentarse la decisión con justificación.
+	
+	\subsection*{CA4 -- Respaldo académico}
+	\textbf{Dado} la selección de técnicas, \\
+	\textbf{cuando} se documente la metodología, \\
+	\textbf{entonces} deben incluirse fuentes académicas que respalden la decisión.
+	
+	\section{Entregables Esperados}
+	
+	\subsection{Documento Principal}
+	
+	\subsubsection{Descripción de Técnicas de Destilación}
+	
+	Se identifican tres enfoques principales de destilación aplicables a modelos de lenguaje autoregresivos:
+	
+	\begin{itemize}
+		\item \textbf{Logits-based distillation:} el modelo student se entrena para aproximar la distribución de probabilidad del modelo teacher en cada paso temporal. Esta distribución contiene información sobre la incertidumbre del modelo y las relaciones entre posibles tokens.
+		
+		\item \textbf{Feature-based distillation:} el student intenta replicar representaciones internas del modelo teacher (hidden states o activaciones intermedias), permitiendo transferir estructura interna del modelo.
+		
+		\item \textbf{Response-based distillation:} el student se entrena utilizando únicamente las respuestas generadas por el teacher como etiquetas, reduciendo el problema a aprendizaje supervisado tradicional.
+	\end{itemize}
+	
+
+	
+	\subsubsection{Explicación Técnica de los Enfoques}
+	
+	En el enfoque logits-based, el teacher genera logits $z_T \in \mathbb{R}^{L \times V}$ y el student genera logits $z_S \in \mathbb{R}^{L \times V}$.
+	
+	Se aplica suavización mediante temperatura $T$:
+	
+	\begin{center}
+		$P_T = softmax(\frac{z_T}{T}), \quad P_S = softmax(\frac{z_S}{T})$
+	\end{center}
+	
+	y se minimiza:
+	
+	\begin{center}
+		$L_{soft} = D_{KL}(P_T \parallel P_S)$
+	\end{center}
+	
+	Esto permite que el student no solo aprenda la respuesta correcta, sino también la distribución de probabilidad completa del teacher.
+	
+	En el enfoque feature-based, se busca alinear representaciones internas:
+	
+	\begin{center}
+		$L_{feature} = ||h_T - h_S||^2$
+	\end{center}
+	
+	lo cual requiere acceso a las capas internas del modelo teacher.
+	
+	En el enfoque response-based, el entrenamiento se reduce a:
+	
+	\begin{center}
+		$L_{hard} = CE(y_{true}, y_{pred})$
+	\end{center}
+	
+	lo cual ignora completamente la información probabilística del teacher.
+	
+
+	
+	\subsubsection{Comparación entre Técnicas}
+	
+	\begin{longtable}{|l|l|l|l|}
+		\hline
+		\textbf{Criterio} & \textbf{Logits-based} & \textbf{Feature-based} & \textbf{Response-based} \\
+		\hline
+		Tipo de información & Distribución completa & Representaciones internas & Texto generado \\
+		\hline
+		Dependencia arquitectura & Baja & Alta & Baja \\
+		\hline
+		Complejidad & Media & Alta & Baja \\
+		\hline
+		Costo computacional & Medio & Alto & Bajo \\
+		\hline
+		Nivel de transferencia & Alto & Muy alto & Medio \\
+		\hline
+	\end{longtable}
+	
+
+	
+	\subsubsection{Análisis Crítico}
+	
+	El enfoque feature-based presenta el mayor potencial teórico, ya que permite transferir conocimiento estructural del modelo. Sin embargo, su aplicación requiere acceso a las representaciones internas del teacher, lo cual no es viable en escenarios donde se utilizan modelos preentrenados como black-box. Esto limita su uso en pipelines reales.
+	
+	El enfoque response-based es el más simple de implementar y no requiere acceso adicional al modelo teacher. Sin embargo, al utilizar únicamente etiquetas duras, pierde información relevante sobre la distribución de probabilidad del teacher, lo que reduce la calidad de la transferencia de conocimiento.
+	
+	El enfoque logits-based permite capturar la distribución completa del teacher sin necesidad de acceso a su arquitectura interna. Esto lo convierte en una solución intermedia que equilibra calidad de transferencia y viabilidad de implementación.
+	
+	Adicionalmente, el uso exclusivo de divergencia KL puede generar una señal de aprendizaje limitada cuando el student ya está parcialmente alineado con el teacher (por ejemplo, en modelos preentrenados). Por lo tanto, es necesario complementar esta señal con una pérdida supervisada adicional.
+	
+
+	
+	\subsubsection{Decisión Técnica}
+	
+	Se propone utilizar logits-based distillation como técnica principal del pipeline.
+	
+	Se descarta el enfoque feature-based debido a su alta complejidad de implementación y dependencia de acceso interno al modelo teacher.
+	
+	Se descarta el enfoque response-based como única técnica debido a la pérdida de información probabilística, lo cual limita la calidad del aprendizaje.
+	
+	Se define una función de pérdida híbrida:
+	
+	\begin{itemize}
+		\item Pérdida de destilación:
+		\begin{center}
+			$L_{soft} = D_{KL}(P_T, P_S)$
+		\end{center}
+		
+		\item Pérdida supervisada:
+		\begin{center}
+			$L_{hard} = CE(y_{true}, y_{pred})$
+		\end{center}
+	\end{itemize}
+	
+	La función total es:
+	
+	\begin{center}
+		$L = \alpha \cdot L_{soft} + (1 - \alpha) \cdot L_{hard}$
+	\end{center}
+	
+	Esta combinación permite:
+	
+	\begin{itemize}
+		\item Transferir conocimiento del teacher (soft targets)
+		\item Mantener una señal de aprendizaje fuerte (hard targets)
+	\end{itemize}
+	
+
+	
+	\subsubsection{Definición del Pipeline Propuesto (Reproducibilidad)}
+	
+	Se define el siguiente flujo conceptual de entrenamiento:
+	
+	\begin{enumerate}
+		\item Construcción del input:
+		\begin{center}
+			$input = prompt + response$
+		\end{center}
+		
+		\item Tokenización:
+		\begin{itemize}
+			\item $input\_ids$
+			\item $attention\_mask$
+		\end{itemize}
+		
+		\item Forward del modelo teacher:
+		\begin{center}
+			$z_T = T(input\_ids)$
+		\end{center}
+		
+		\item Forward del modelo student:
+		\begin{center}
+			$z_S = S(input\_ids)$
+		\end{center}
+		
+		\item Alineación temporal (shift de logits):
+		
+		\begin{itemize}
+			\item $z_S[:, :-1]$
+			\item $z_T[:, 1:]$
+		\end{itemize}
+		
+		\item Aplicación de máscara:
+		
+		Solo se consideran los tokens correspondientes a la respuesta para el cálculo de la pérdida.
+		
+		\item Cálculo de pérdidas:
+		
+		\begin{itemize}
+			\item $L_{soft}$ (KL divergence)
+			\item $L_{hard}$ (CrossEntropy)
+		\end{itemize}
+		
+		\item Combinación de pérdidas y actualización del modelo student
+	\end{enumerate}
+	
+	\subsection{Matriz de Comparación}
+	
+	\begin{longtable}{|p{3.5cm}|p{2cm}|p{2cm}|p{2cm}|p{6cm}|}
+		\hline
+		\textbf{Criterio} & \textbf{A (Logits-based)} & \textbf{B (Feature-based)} & \textbf{C (Response-based)} & \textbf{Observaciones} \\
+		\hline
+		
+		Complejidad 
+		& Media 
+		& Alta 
+		& Baja 
+		& Feature-based requiere acceso a capas internas del modelo teacher y alineación entre arquitecturas, lo que incrementa significativamente la complejidad. Logits-based solo requiere logits de salida, mientras que response-based es equivalente a fine-tuning estándar. \\
+		\hline
+		
+		Performance (calidad de transferencia)
+		& Alta 
+		& Muy alta 
+		& Media 
+		& Feature-based permite transferir información estructural profunda (representaciones internas), lo que puede mejorar el aprendizaje en tareas complejas. Logits-based captura relaciones probabilísticas entre tokens. Response-based pierde información de incertidumbre del teacher. \\
+		\hline
+		
+		Escalabilidad 
+		& Alta 
+		& Media 
+		& Alta 
+		& Logits-based y response-based escalan bien a grandes datasets. Feature-based incrementa el uso de memoria al requerir almacenamiento y procesamiento de activaciones internas del teacher. \\
+		\hline
+		
+		Implementación 
+		& Media 
+		& Alta 
+		& Baja 
+		& Logits-based requiere cálculo de divergencia KL y manejo de temperatura. Feature-based implica modificaciones en la arquitectura y acceso a hooks internos. Response-based puede implementarse directamente con pipelines de entrenamiento supervisado. \\
+		\hline
+		
+		Compatibilidad 
+		& Alta 
+		& Baja 
+		& Alta 
+		& Logits-based y response-based funcionan con modelos black-box. Feature-based depende de acceso a las capas internas, lo cual no es viable en muchos modelos preentrenados (por ejemplo, APIs cerradas). \\
+		\hline
+		
+		Requerimientos de datos
+		& Altos (incluye logits por token)
+		& Muy altos (incluye activaciones internas)
+		& Bajos (solo texto)
+		& Logits-based requiere almacenar distribuciones completas del teacher (dimensión vocabulario). Feature-based requiere aún más información (hidden states). Response-based solo necesita pares entrada-salida. \\
+		\hline
+		
+		Costo computacional
+		& Medio 
+		& Alto 
+		& Bajo 
+		& Feature-based requiere mayor uso de GPU/VRAM debido a la extracción de representaciones internas. Logits-based implica doble forward (teacher + student). Response-based es el más eficiente. \\
+		\hline
+		
+		Robustez del aprendizaje
+		& Alta 
+		& Alta 
+		& Media 
+		& Logits-based proporciona señales suaves que estabilizan el entrenamiento. Feature-based también es robusto pero complejo. Response-based depende únicamente de etiquetas duras, lo que puede generar sobreajuste. \\
+		\hline
+		
+	\end{longtable}
+	
+	\subsection{Referencias}
+	
+	\subsubsection{Papers}
+	
+	\begin{itemize}
+		\item Hinton, G., Vinyals, O., \& Dean, J. (2015). \textit{Distilling the Knowledge in a Neural Network}. arXiv:1503.02531.
+		
+		\item Sanh, V., Debut, L., Chaumond, J., \& Wolf, T. (2019). \textit{DistilBERT: a distilled version of BERT}. arXiv:1910.01108.
+		
+		\item Jiao, X., Yin, Y., Shang, L., Jiang, X., Chen, X., Li, L., Wang, F., \& Liu, Q. (2020). \textit{TinyBERT: Distilling BERT for Natural Language Understanding}. arXiv:1909.10351.
+		
+		\item Sun, S., Cheng, Y., Gan, Z., \& Liu, J. (2019). \textit{Patient Knowledge Distillation for BERT Model Compression}. arXiv:1908.09355.
+		
+		\item Gou, J., Yu, B., Maybank, S., \& Tao, D. (2021). \textit{Knowledge Distillation: A Survey}. International Journal of Computer Vision.
+	\end{itemize}
+	
+	\subsubsection{Documentación Oficial}
+	
+	\begin{itemize}
+		\item Hugging Face. \textit{Transformers Documentation}. Disponible en: \url{https://huggingface.co/docs/transformers}
+		
+		\item Hugging Face. \textit{Trainer API and Fine-tuning Guide}. Disponible en: \url{https://huggingface.co/docs/transformers/main_classes/trainer}
+		
+		\item PyTorch. \textit{KL Divergence Loss (torch.nn.functional.kl\_div)}. Disponible en: \url{https://pytorch.org/docs/stable/generated/torch.nn.functional.kl_div.html}
+		
+		\item PyTorch. \textit{CrossEntropyLoss}. Disponible en: \url{https://pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html}
+	\end{itemize}
+	
+	\subsubsection{Blogs Técnicos y Recursos Aplicados}
+	
+	\begin{itemize}
+		\item Hugging Face Blog. \textit{Distillation with Transformers}. Disponible en: \url{https://huggingface.co/blog/distillation}
+		
+		\item Lilian Weng. \textit{Knowledge Distillation Explained}. Disponible en: \url{https://lilianweng.github.io/posts/2021-01-13-knowledge-distillation/}
+		
+		\item Sebastian Raschka. \textit{Model Distillation and Model Compression}. Disponible en: \url{https://sebastianraschka.com/blog/2022/model-distillation.html}
+		
+		\item Towards Data Science. \textit{Knowledge Distillation in Deep Learning}. Disponible en: \url{https://towardsdatascience.com}
+	\end{itemize}
+	
+	\subsection{Evidencia Técnica Adicional (Opcional)}
+	
+	\subsubsection{Diagrama del Pipeline de Destilación}
+	
+	El proceso de destilación se estructura como un pipeline secuencial compuesto por las siguientes etapas:
+	
+	\begin{enumerate}
+		\item Construcción del input:
+		\begin{center}
+			$input = prompt + response$
+		\end{center}
+		
+		\item Tokenización:
+		\begin{itemize}
+			\item Generación de $input\_ids$
+			\item Generación de $attention\_mask$
+		\end{itemize}
+		
+		\item Forward del modelo teacher:
+		\begin{center}
+			$z_T = Teacher(input\_ids)$
+		\end{center}
+		
+		\item Forward del modelo student:
+		\begin{center}
+			$z_S = Student(input\_ids)$
+		\end{center}
+		
+		\item Alineación temporal (shift):
+		\begin{itemize}
+			\item $z_S[:, :-1, :]$
+			\item $z_T[:, 1:, :]$
+		\end{itemize}
+		
+		\item Aplicación de máscara:
+		
+		Se construye una máscara binaria para considerar únicamente los tokens correspondientes a la respuesta.
+		
+		\item Cálculo de pérdidas:
+		\begin{itemize}
+			\item $L_{soft} = D_{KL}(P_T, P_S)$
+			\item $L_{hard} = CE(y_{true}, y_{pred})$
+		\end{itemize}
+		
+		\item Optimización:
+		\begin{center}
+			$L = \alpha \cdot L_{soft} + (1 - \alpha) \cdot L_{hard}$
+		\end{center}
+	\end{enumerate}
+	
+
+	
+	\subsubsection{Pseudocódigo del Entrenamiento}
+	
+	\begin{verbatim}
+		for batch in dataloader:
+		
+		input_ids = batch["input_ids"]
+		attention_mask = batch["attention_mask"]
+		teacher_logits = batch["teacher_logits"]
+		labels = batch["labels"]
+		
+		# Forward student
+		student_outputs = student(input_ids, attention_mask)
+		student_logits = student_outputs.logits
+		
+		# Shift
+		student_logits = student_logits[:, :-1, :]
+		teacher_logits = teacher_logits[:, 1:, :]
+		labels = labels[:, 1:]
+		
+		# Soft targets
+		teacher_probs = softmax(teacher_logits / T)
+		student_log_probs = log_softmax(student_logits / T)
+		
+		loss_soft = KL(student_log_probs, teacher_probs)
+		
+		# Hard targets
+		loss_hard = CrossEntropy(student_logits, labels)
+		
+		# Mask (solo response)
+		mask = build_response_mask(input_ids)
+		loss_soft = apply_mask(loss_soft, mask)
+		loss_hard = apply_mask(loss_hard, mask)
+		
+		# Total loss
+		loss = alpha * loss_soft + (1 - alpha) * loss_hard
+		
+		loss.backward()
+		optimizer.step()
+	\end{verbatim}
+	
+
+	
+	\subsubsection{Ejemplo de Flujo de Datos}
+	
+	Se presenta un ejemplo simplificado del flujo de datos en una iteración:
+	
+	\begin{itemize}
+		\item Input:
+		\begin{verbatim}
+			### Instruction:
+			Explain machine learning
+			
+			### Response:
+			Machine learning is a field of AI...
+		\end{verbatim}
+		
+		\item Tokenización:
+		\begin{itemize}
+			\item Secuencia convertida a índices de vocabulario
+			\item Padding hasta longitud fija
+		\end{itemize}
+		
+		\item Teacher:
+		\begin{itemize}
+			\item Genera logits por cada token: $[L, V]$
+		\end{itemize}
+		
+		\item Student:
+		\begin{itemize}
+			\item Genera logits con misma dimensión: $[L, V]$
+		\end{itemize}
+		
+		\item Máscara:
+		\begin{itemize}
+			\item 0 → tokens del prompt
+			\item 1 → tokens de la respuesta
+		\end{itemize}
+		
+		\item Salida:
+		\begin{itemize}
+			\item Actualización de pesos del student basada en pérdida combinada
+		\end{itemize}
+	\end{itemize}
+	
+	\section{Resultado / Conclusión}
+	
+	\subsection{Hallazgos Principales}
+	
+	\subsubsection{Diferencias entre enfoques}
+	
+	Se identifican diferencias fundamentales en el tipo de conocimiento que cada técnica permite transferir:
+	
+	\begin{itemize}
+		\item \textbf{Logits-based distillation} transfiere la distribución completa de probabilidad del modelo teacher, capturando relaciones entre tokens (incluyendo incertidumbre y alternativas plausibles).
+		
+		\item \textbf{Feature-based distillation} transfiere representaciones internas del modelo, lo que permite al student aproximar la estructura latente del teacher, incluyendo patrones semánticos y sintácticos de alto nivel.
+		
+		\item \textbf{Response-based distillation} únicamente transfiere la salida final del modelo, reduciendo la señal de aprendizaje a etiquetas duras sin información probabilística adicional.
+	\end{itemize}
+	
+	Estas diferencias implican que cada enfoque opera en un nivel distinto del modelo: salida probabilística, representación interna o salida textual.
+	
+	\subsubsection{Limitaciones identificadas}
+	
+	Cada técnica presenta restricciones relevantes que impactan su aplicabilidad en un pipeline real:
+	
+	\begin{itemize}
+		\item \textbf{Feature-based:}
+		\begin{itemize}
+			\item Requiere acceso a las capas internas del modelo teacher.
+			\item Depende de la compatibilidad entre arquitecturas (dimensiones de hidden states).
+			\item Incrementa significativamente el costo computacional y de memoria.
+		\end{itemize}
+		
+		\item \textbf{Response-based:}
+		\begin{itemize}
+			\item No captura la distribución de probabilidad del teacher.
+			\item Puede inducir sobreajuste al tratar las respuestas como únicas correctas.
+			\item Pierde información sobre alternativas semánticamente válidas.
+		\end{itemize}
+		
+		\item \textbf{Logits-based:}
+		\begin{itemize}
+			\item Requiere almacenar logits del teacher (alto costo en almacenamiento).
+			\item Introduce complejidad adicional en el cálculo de la pérdida (KL divergence + temperatura).
+			\item Puede generar una señal de gradiente débil si no se combina con supervisión adicional.
+		\end{itemize}
+	\end{itemize}
+	
+	\subsubsection{Ventajas relevantes}
+	
+	A pesar de sus limitaciones, se identifican ventajas claras en cada enfoque:
+	
+	\begin{itemize}
+		\item \textbf{Logits-based:}
+		\begin{itemize}
+			\item Captura información rica sobre la distribución del teacher.
+			\item No requiere acceso a la arquitectura interna del modelo.
+			\item Permite un balance entre calidad de transferencia y viabilidad de implementación.
+		\end{itemize}
+		
+		\item \textbf{Feature-based:}
+		\begin{itemize}
+			\item Ofrece la mayor fidelidad en la transferencia de conocimiento.
+			\item Permite replicar patrones internos complejos del modelo teacher.
+		\end{itemize}
+		
+		\item \textbf{Response-based:}
+		\begin{itemize}
+			\item Es el enfoque más simple de implementar.
+			\item Escala fácilmente a grandes volúmenes de datos.
+			\item Compatible con cualquier modelo, incluso como black-box.
+		\end{itemize}
+	\end{itemize}
+	
+	\subsubsection{Síntesis de los hallazgos}
+	
+	El análisis evidencia que no existe una técnica dominante en todos los escenarios, sino que cada una presenta trade-offs entre:
+	
+	\begin{itemize}
+		\item Calidad de transferencia de conocimiento
+		\item Complejidad de implementación
+		\item Requerimientos computacionales
+	\end{itemize}
+	
+	En este contexto, el enfoque logits-based se posiciona como la alternativa más equilibrada para un pipeline inicial, al permitir una transferencia de conocimiento significativa sin requerir acceso interno al modelo teacher.
+	
+	\subsection{Decisión Técnica}
+	
+	\subsubsection{Enfoque seleccionado}
+	
+	Se selecciona la \textbf{destilación basada en logits} como técnica principal para el pipeline baseline del proyecto.
+	
+	Adicionalmente, se define un esquema de entrenamiento híbrido que combina:
+	
+	\begin{itemize}
+		\item \textbf{Pérdida de destilación (soft targets):} basada en la divergencia KL entre las distribuciones del teacher y el student.
+		\item \textbf{Pérdida supervisada (hard targets):} basada en cross-entropy utilizando las respuestas esperadas del dataset.
+	\end{itemize}
+	
+	La función de pérdida propuesta es:
+	
+	\begin{center}
+		$L = \alpha \cdot L_{soft} + (1 - \alpha) \cdot L_{hard}$
+	\end{center}
+	
+	donde $\alpha$ controla el balance entre la transferencia de conocimiento del teacher y el aprendizaje directo a partir de los datos.
+	
+	\subsubsection{Justificación basada en evidencia}
+	
+	La selección del enfoque logits-based se fundamenta en los siguientes hallazgos del análisis previo:
+	
+	\begin{itemize}
+		\item Permite transferir información probabilística completa, capturando relaciones entre tokens que no están presentes en enfoques basados únicamente en texto.
+		
+		\item No requiere acceso a las capas internas del modelo teacher, lo que lo hace viable en escenarios donde el modelo funciona como black-box.
+		
+		\item Presenta un balance adecuado entre complejidad de implementación y calidad de transferencia, a diferencia de feature-based (alta complejidad) y response-based (baja riqueza de información).
+		
+		\item La evidencia teórica indica que el uso exclusivo de soft targets puede generar señales de aprendizaje débiles, por lo que se justifica la incorporación de una pérdida supervisada adicional.
+	\end{itemize}
+	
+	Adicionalmente, el análisis comparativo muestra que:
+	
+	\begin{itemize}
+		\item Feature-based, aunque más potente, no es viable sin acceso interno al modelo.
+		\item Response-based, aunque simple, reduce la destilación a un problema supervisado estándar, perdiendo información clave.
+	\end{itemize}
+	
+	Por lo tanto, la combinación de soft y hard loss permite mitigar las limitaciones del enfoque logits-based, fortaleciendo la señal de entrenamiento.
+	
+	\subsubsection{Relación con los objetivos del proyecto}
+	
+	La decisión tomada está alineada con los objetivos principales del proyecto:
+	
+	\begin{itemize}
+		\item \textbf{Eficiencia computacional:} permite entrenar un modelo student más ligero sin requerir acceso completo al teacher en tiempo de inferencia.
+		
+		\item \textbf{Viabilidad de implementación:} evita dependencias de arquitectura, facilitando la integración con modelos preentrenados existentes.
+		
+		\item \textbf{Calidad del modelo resultante:} mantiene una transferencia de conocimiento significativa mediante el uso de distribuciones probabilísticas.
+		
+		\item \textbf{Escalabilidad del pipeline:} permite construir datasets de destilación reutilizables basados en logits, facilitando futuras iteraciones del modelo.
+	\end{itemize}
+	
+	En conjunto, esta decisión define el \textbf{baseline técnico del sistema de destilación}, sobre el cual podrán evaluarse mejoras futuras, como la incorporación de técnicas más avanzadas o combinaciones híbridas adicionales.
+	
+	\subsection{Impacto en el Proyecto}
+	
+	\subsubsection{Pipeline baseline de destilación}
+	
+	La decisión de utilizar destilación basada en logits define directamente la estructura del pipeline baseline del sistema.
+	
+	Este pipeline estará compuesto por las siguientes etapas:
+	
+	\begin{itemize}
+		\item \textbf{Generación de datos de destilación:}
+		\begin{itemize}
+			\item Construcción de prompts estructurados (instruction + context + response).
+			\item Inferencia con el modelo teacher para obtener logits asociados a cada token.
+			\item Almacenamiento de los logits junto con el texto en formato estructurado (por ejemplo, JSONL).
+		\end{itemize}
+		
+		\item \textbf{Preprocesamiento:}
+		\begin{itemize}
+			\item Tokenización del input completo (prompt + respuesta).
+			\item Alineación de secuencias (shift de logits para predicción autoregresiva).
+			\item Construcción de máscaras para entrenar únicamente sobre la sección de respuesta.
+		\end{itemize}
+		
+		\item \textbf{Entrenamiento del modelo student:}
+		\begin{itemize}
+			\item Cálculo de pérdida de destilación mediante divergencia KL con temperatura.
+			\item Cálculo de pérdida supervisada mediante cross-entropy.
+			\item Combinación de ambas pérdidas en un esquema híbrido.
+		\end{itemize}
+	\end{itemize}
+	
+	Este pipeline constituye el \textbf{baseline experimental} sobre el cual se evaluarán mejoras futuras.
+	
+	\subsubsection{Pipeline con RAG}
+	
+	La selección del enfoque de destilación impacta directamente la integración futura con arquitecturas basadas en RAG (Retrieval-Augmented Generation).
+	
+	En particular:
+	
+	\begin{itemize}
+		\item El modelo student podrá ser entrenado para \textbf{aprender patrones de respuesta condicionados por contexto externo}, lo cual es fundamental en sistemas RAG.
+		
+		\item La destilación basada en logits permite capturar cómo el teacher utiliza el contexto recuperado para generar respuestas, no solo el resultado final.
+		
+		\item Esto habilita la posibilidad de:
+		\begin{itemize}
+			\item Destilar comportamiento contextual (cómo usar documentos recuperados).
+			\item Reducir dependencia de modelos grandes en tiempo de inferencia.
+		\end{itemize}
+	\end{itemize}
+	
+	En consecuencia, el pipeline de distillation se convierte en un componente clave para construir un \textbf{modelo student eficiente dentro de un sistema RAG}.
+	
+	\subsubsection{Evaluación de modelos}
+	
+	La decisión técnica también define cómo deben evaluarse los modelos resultantes.
+	
+	Se establecen tres niveles de evaluación:
+	
+	\begin{itemize}
+		\item \textbf{Evaluación intrínseca:}
+		\begin{itemize}
+			\item Comparación de pérdida (loss) durante entrenamiento.
+			\item Divergencia entre distribuciones del teacher y student.
+		\end{itemize}
+		
+		\item \textbf{Evaluación de generación:}
+		\begin{itemize}
+			\item Calidad de respuestas generadas por el student.
+			\item Coherencia, relevancia y fidelidad al contexto.
+		\end{itemize}
+		
+		\item \textbf{Evaluación comparativa:}
+		\begin{itemize}
+			\item Comparación entre:
+			\begin{itemize}
+				\item Modelo teacher
+				\item Modelo student (destilado)
+				\item Modelo base sin distilación
+			\end{itemize}
+			
+			\item Medición de trade-offs entre:
+			\begin{itemize}
+				\item Calidad vs tamaño del modelo
+				\item Performance vs costo computacional
+			\end{itemize}
+		\end{itemize}
+	\end{itemize}
+	
+	Esta estructura de evaluación permite validar si la destilación logra su objetivo principal: \textbf{mantener el rendimiento del modelo teacher en un modelo más eficiente}.
+	
+	\subsection{Trade-offs}
+	
+	\subsubsection{Qué se gana}
+	
+	\begin{itemize}
+		\item \textbf{Transferencia de conocimiento rica:} el uso de logits permite capturar relaciones probabilísticas entre tokens, incluyendo incertidumbre y alternativas semánticamente válidas.
+		
+		\item \textbf{Compatibilidad con modelos black-box:} no se requiere acceso a las capas internas del modelo teacher, lo que facilita el uso de modelos preentrenados cerrados.
+		
+		\item \textbf{Balance entre calidad y complejidad:} ofrece una mejor relación entre facilidad de implementación y calidad de transferencia frente a otras técnicas.
+		
+		\item \textbf{Base sólida para extensiones:} el enfoque permite incorporar mejoras posteriores (por ejemplo, ajuste de temperatura, ponderación dinámica de pérdidas o integración con RAG).
+	\end{itemize}
+	
+	\subsubsection{Qué se sacrifica}
+	
+	\begin{itemize}
+		\item \textbf{Costo de almacenamiento:} es necesario almacenar logits del modelo teacher, lo que incrementa significativamente el tamaño del dataset.
+		
+		\item \textbf{Complejidad en el entrenamiento:} el cálculo de divergencia KL y el manejo de temperatura introducen mayor complejidad respecto a un entrenamiento supervisado estándar.
+		
+		\item \textbf{Dependencia de hiperparámetros:} el rendimiento depende de la correcta calibración de parámetros como la temperatura y el peso $\alpha$ entre pérdidas.
+		
+		\item \textbf{Menor fidelidad que feature-based:} no se capturan representaciones internas del modelo, lo que limita el nivel máximo de transferencia de conocimiento.
+	\end{itemize}
+	
+	\subsubsection{Riesgos asociados}
+	
+	\begin{itemize}
+		\item \textbf{Señal de aprendizaje débil:} si se utiliza únicamente la pérdida de distilación, el modelo puede no aprender de forma efectiva.
+		
+		\item \textbf{Desbalance entre pérdidas:} una mala elección de $\alpha$ puede hacer que el modelo ignore el teacher o los datos reales.
+		
+		\item \textbf{Problemas de alineación:} errores en el shift de logits o en la máscara pueden afectar directamente el entrenamiento.
+		
+		\item \textbf{Escalabilidad del dataset:} el almacenamiento y procesamiento de logits puede convertirse en un cuello de botella en datasets grandes.
+	\end{itemize}
+	
+	\subsection{Nivel de Confianza}
+	
+	\subsubsection{Nivel}
+	
+	Alto
+	
+	\subsubsection{Justificación}
+	
+	\begin{itemize}
+		\item La decisión está respaldada por literatura académica ampliamente validada en el área de distilación de modelos.
+		
+		\item Existe consistencia entre el análisis teórico, la comparación estructurada y la decisión técnica tomada.
+		
+		\item El enfoque seleccionado ha sido utilizado en implementaciones reales (por ejemplo, DistilBERT y TinyBERT).
+		
+		\item La técnica seleccionada no depende de supuestos restrictivos (como acceso a capas internas), lo que aumenta su viabilidad práctica.
+		
+		\item Se identificaron explícitamente limitaciones y riesgos, lo que reduce incertidumbre en fases posteriores.
+	\end{itemize}
+	
+	\subsection{Recomendación Final}
+	
+	\subsubsection{Siguientes acciones}
+	
+	\begin{itemize}
+		\item \textbf{Definición de hiperparámetros de distilación:}
+		\begin{itemize}
+			\item Se propone evaluar diferentes valores de temperatura ($T$) para analizar su impacto en la señal de aprendizaje proveniente del modelo teacher.
+			\item Se definirá una estrategia para ajustar el parámetro $\alpha$, que controla el balance entre pérdida soft (KL) y hard (cross-entropy).
+		\end{itemize}
+		
+		\item \textbf{Escalamiento del dataset de distilación:}
+		\begin{itemize}
+			\item Se plantea incrementar el tamaño del dataset con el fin de mejorar la capacidad de generalización del modelo student.
+			\item Se buscará garantizar diversidad en prompts y contextos para cubrir múltiples tipos de tareas.
+		\end{itemize}
+		
+		\item \textbf{Estrategia de almacenamiento de logits:}
+		\begin{itemize}
+			\item Se evaluarán alternativas para optimizar el almacenamiento de logits, como reducción de precisión (por ejemplo, float16).
+			\item Se analizará la viabilidad de generar logits en línea (online distillation) como alternativa al almacenamiento masivo.
+		\end{itemize}
+		
+		\item \textbf{Definición del pipeline de evaluación:}
+		\begin{itemize}
+			\item Se establecerán métricas de evaluación automática (perplejidad, BLEU, ROUGE u otras según el caso).
+			\item Se definirá un esquema de comparación entre el modelo student, el modelo teacher y un baseline sin distilación.
+		\end{itemize}
+		
+		\item \textbf{Integración con RAG:}
+		\begin{itemize}
+			\item Se diseñarán prompts que incorporen contexto recuperado para simular escenarios RAG.
+			\item Se evaluará la capacidad del modelo distilado para utilizar información externa en la generación de respuestas.
+		\end{itemize}
+	\end{itemize}
+	
+	\subsubsection{Qué evitar}
+	
+	\begin{itemize}
+		\item \textbf{Uso exclusivo de soft loss:}
+		\begin{itemize}
+			\item Se debe evitar definir un esquema de entrenamiento basado únicamente en KL divergence, ya que puede generar una señal de aprendizaje insuficiente.
+		\end{itemize}
+		
+		\item \textbf{Dataset limitado o poco diverso:}
+		\begin{itemize}
+			\item Se debe evitar trabajar con datasets pequeños o homogéneos, debido a su impacto negativo en la generalización del modelo.
+		\end{itemize}
+		
+		\item \textbf{Mala alineación de secuencias:}
+		\begin{itemize}
+			\item Se deben prevenir errores en el alineamiento de logits (shift) y en la construcción de máscaras, ya que afectan directamente el proceso de entrenamiento.
+		\end{itemize}
+		
+		\item \textbf{Desbalance en la función de pérdida:}
+		\begin{itemize}
+			\item Se debe evitar una configuración extrema del parámetro $\alpha$, que pueda hacer que el modelo ignore la señal del teacher o los datos reales.
+		\end{itemize}
+		
+		\item \textbf{Subestimación de costos computacionales:}
+		\begin{itemize}
+			\item Se debe considerar el impacto del almacenamiento y procesamiento de logits en términos de memoria y tiempo de cómputo.
+		\end{itemize}
+	\end{itemize}
+	
+	\subsubsection{Validaciones futuras}
+	
+	\begin{itemize}
+		\item \textbf{Evaluación comparativa de modelos:}
+		\begin{itemize}
+			\item Se definirá un esquema de evaluación que permita comparar el desempeño entre el modelo teacher, el modelo student distilado y un modelo entrenado sin distilación.
+		\end{itemize}
+		
+		\item \textbf{Análisis de impacto de hiperparámetros:}
+		\begin{itemize}
+			\item Se evaluará el efecto de diferentes configuraciones de $T$ y $\alpha$ sobre el comportamiento del modelo.
+		\end{itemize}
+		
+		\item \textbf{Evaluación cualitativa:}
+		\begin{itemize}
+			\item Se analizarán ejemplos generados para validar coherencia, fidelidad al contexto y calidad semántica.
+		\end{itemize}
+		
+		\item \textbf{Validación en escenarios RAG:}
+		\begin{itemize}
+			\item Se evaluará el desempeño del modelo en tareas que involucren integración de información externa.
+		\end{itemize}
+		
+		\item \textbf{Validación de escalabilidad:}
+		\begin{itemize}
+			\item Se analizará el comportamiento del pipeline al aumentar el tamaño del dataset y la complejidad del modelo.
+		\end{itemize}
+	\end{itemize}
+	
+\end{document}
