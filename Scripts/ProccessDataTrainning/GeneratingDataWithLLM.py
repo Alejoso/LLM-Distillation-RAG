@@ -23,6 +23,7 @@ from pathlib import Path
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -309,12 +310,14 @@ def validate_examples(parsed: dict) -> dict:
     return {"data": valid_data}
 
 # Main processing loop
-def process_documents(laws_folder: Path, output_file: Path, model, tokenizer, max_files: int):
+def process_documents(laws_folder: Path, output_file: Path, model, tokenizer, max_files: int, start_index: int = 0):
     dataset = {"data": []}
     processed_count = 0
 
     txt_files = [f for f in os.listdir(laws_folder) if f.endswith(".txt")]
-    logger.info("Found %d .txt files in %s", len(txt_files), laws_folder)
+    txt_files = sorted(txt_files)
+    txt_files = txt_files[start_index:]
+    logger.info("Found %d .txt files starting from index %d", len(txt_files), start_index)
 
     for file in txt_files:
         if processed_count >= max_files:
@@ -398,6 +401,12 @@ def parse_args():
         default=None,
         help="Maximum number of files to process. Defaults to all files.",
     )
+    parser.add_argument(
+        "--start_index",
+        type=int,
+        default=0,
+        help="Index of the first file to process (for parallel runs).",
+    )
     return parser.parse_args()
 
 
@@ -414,4 +423,4 @@ if __name__ == "__main__":
     max_files = args.max_files if args.max_files is not None else total_files
 
     model, tokenizer = load_model(args.hf_token)
-    process_documents(args.laws_folder, args.output_file, model, tokenizer, max_files)
+    process_documents(args.laws_folder, args.output_file, model, tokenizer, max_files , args.start_index)
