@@ -78,39 +78,51 @@ The "context" field MUST ALWAYS be empty.
 
 QUESTION TYPE DEFINITIONS AND MANDATORY DISTRIBUTION
 
-1. idea_central : 2 examples
-   The response must capture the core idea in a single sentence.
+All questions MUST be specific to the content of the document.
+Do NOT ask generic questions like "summarize the document" or "list key points".
+Each instruction must reference a concrete element present in the document
+(an article, an entity, a date, an obligation, a condition, a right, a prohibition, etc.).
 
-2. resumen_3_niveles : 1 example
-   The response must provide:
-   - Summary in 1 sentence
-   - Summary in 3 sentences
-   - 5 key bullet points
+1. entidad_especifica : 2 examples
+   Ask about a specific named entity in the document (a person, institution, department,
+   company, or country). The instruction must name the entity.
+   Example instruction style: "¿Qué rol cumple [entidad] según el documento?"
 
-3. esencial_vs_accesorio : 1 example
-   The response must classify content into essential and non-essential.
+2. obligacion_o_derecho : 2 examples
+   Ask about a specific obligation, right, or prohibition established in the document.
+   The instruction must reference the specific article or clause if available.
+   Example instruction style: "¿Qué obligación establece el artículo X sobre [tema]?"
 
-4. estructura_logica : 1 example
-   The response must describe the logical structure of the document.
+3. condicion_o_requisito : 1 example
+   Ask about a specific condition, requirement, or restriction stated in the document.
+   The instruction must be grounded in a concrete condition mentioned in the text.
+   Example instruction style: "¿Bajo qué condición se puede [acción] según el documento?"
 
-5. reescritura_simplificada : 1 example
-   The response must be a plain-language rewrite accessible to a layperson.
+4. dato_concreto : 2 examples
+   Ask about a specific fact: a date, amount, period, location, or number mentioned
+   in the document. The instruction must ask for that specific datum.
+   Example instruction style: "¿Cuál es el monto aprobado en el artículo X?"
 
-6. intencion_autor : 1 example
-   The response must identify the purpose of the document.
+5. alcance_o_ambito : 1 example
+   Ask about the scope, jurisdiction, or applicability of a specific provision.
+   The instruction must reference a specific article or provision.
+   Example instruction style: "¿A quiénes aplica la disposición del artículo X?"
 
-7. conceptos_clave : 1 example
-   The response must list key concepts with one-line definitions.
+6. relacion_entre_partes : 1 example
+   Ask about the legal or contractual relationship between two specific parties
+   mentioned in the document.
+   Example instruction style: "¿Cuál es la relación entre [parte A] y [parte B]
+   según el documento?"
 
-8. reduccion_extrema : 1 example
-   The response must select exactly 5 keywords that capture the essence.
-
-9. conexiones_internas : 1 example
-   The response must explain how the ideas relate to each other.
+7. consecuencia_o_efecto : 1 example
+   Ask about the legal consequence or effect of a specific provision or action
+   described in the document.
+   Example instruction style: "¿Qué consecuencia tiene [acción/evento] según el documento?"
 
 NOTE:
-If the document is too short for resumen_3_niveles, replace it with
-another idea_central.
+All instructions MUST be grounded in specific content from the document.
+NEVER ask to "summarize", "list key points", "identify the main idea", or
+"reduce to keywords" — these are forbidden.
 Always produce exactly 10 examples.
 
 STRICT RULES
@@ -133,19 +145,25 @@ Do NOT include notes.
 
 You MUST generate different types of instructions.
 Do NOT repeat instruction types.
+Each instruction MUST reference a specific element of the document.
 Use a mix of:
-- definition
-- extraction
-- classification
-- reasoning
-- legal interpretation
-- obligations
-- rights
-- entities
-- dates
-- conditions
-- prohibitions
-- scope of law
+- specific named entities (persons, institutions, countries)
+- specific articles or clauses
+- specific obligations or prohibitions
+- specific dates, amounts, or periods
+- specific conditions or requirements
+- specific legal relationships between parties
+- specific consequences or effects of provisions
+
+FORBIDDEN instruction patterns (do NOT use these):
+- "Summarize the document in X sentences"
+- "Identify the main idea"
+- "List key concepts"
+- "Reduce to X keywords"
+- "Classify content into essential and non-essential"
+- "Write a plain-language rewrite"
+- "Explain how the ideas relate to each other" (generic)
+- Any instruction that does not reference a specific element of the document
 
 You MUST extract information ONLY from the document.
 You are NOT allowed to infer, assume, or add information.
