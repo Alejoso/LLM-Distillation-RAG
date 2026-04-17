@@ -76,54 +76,77 @@ Each example MUST include:
 
 The "context" field MUST ALWAYS be empty.
 
+CRITICAL RULE FOR ALL INSTRUCTIONS
+
+Every instruction MUST be self-contained and specific.
+A reader who has NOT read the document must be able to understand exactly
+what is being asked WITHOUT needing to see the document.
+
+THIS IS WRONG (too vague):
+  "¿Qué fecha se menciona en el decreto?"
+  "¿Cuál es el monto aprobado?"
+  "¿Qué obligación establece el artículo 1?"
+  "¿Qué rol cumple la entidad mencionada?"
+
+THIS IS CORRECT (self-contained, specific):
+  "¿En qué año fue firmado el Tratado Comercial entre Colombia y la Unión Soviética?"
+  "¿Cuál fue el monto del crédito suplementario aprobado para cubrir la deuda nacional en el presupuesto 1881-1882?"
+  "¿Qué obligaciones asumió la empresa soviética respecto al diseño de las represas del Alto Sinú?"
+  "¿Bajo qué condición podía el Congreso colombiano aprobar el crédito de $80.000 según el artículo 1?"
+
+The instruction MUST embed the specific names, amounts, dates, or topics
+taken from the document. Do NOT use placeholders like [entidad] or [artículo X].
+Replace them with the real value from the document.
+
 QUESTION TYPE DEFINITIONS AND MANDATORY DISTRIBUTION
 
-All questions MUST be specific to the content of the document.
-Do NOT ask generic questions like "summarize the document" or "list key points".
-Each instruction must reference a concrete element present in the document
-(an article, an entity, a date, an obligation, a condition, a right, a prohibition, etc.).
+1. sobre_entidad_nombrada : 2 examples
+   Ask about the role, responsibilities, or actions of a NAMED entity
+   (a real person, institution, company, or country found in the document).
+   The name must appear in the instruction itself.
+   BAD:  "¿Qué hace la empresa mencionada en el convenio?"
+   GOOD: "¿Qué responsabilidades asumió ENERGOPROEKT en la construcción de las represas del Alto Sinú?"
 
-1. entidad_especifica : 2 examples
-   Ask about a specific named entity in the document (a person, institution, department,
-   company, or country). The instruction must name the entity.
-   Example instruction style: "¿Qué rol cumple [entidad] según el documento?"
+2. sobre_obligacion_o_prohibicion : 2 examples
+   Ask about a specific obligation, right, or prohibition.
+   The instruction must name the subject of the obligation AND the topic.
+   BAD:  "¿Qué obliga el artículo 3?"
+   GOOD: "¿Qué estaba obligado a hacer el gobierno colombiano respecto a las obras civiles de las represas según el convenio?"
 
-2. obligacion_o_derecho : 2 examples
-   Ask about a specific obligation, right, or prohibition established in the document.
-   The instruction must reference the specific article or clause if available.
-   Example instruction style: "¿Qué obligación establece el artículo X sobre [tema]?"
+3. sobre_condicion_o_requisito : 1 example
+   Ask about a specific condition or requirement.
+   The instruction must state what action or situation the condition governs.
+   BAD:  "¿Qué condición se menciona?"
+   GOOD: "¿Qué condición debía cumplirse para que el crédito suplementario de $80.000 fuera incluido en el presupuesto 1881-1882?"
 
-3. condicion_o_requisito : 1 example
-   Ask about a specific condition, requirement, or restriction stated in the document.
-   The instruction must be grounded in a concrete condition mentioned in the text.
-   Example instruction style: "¿Bajo qué condición se puede [acción] según el documento?"
+4. sobre_dato_numerico_o_temporal : 2 examples
+   Ask about a specific number, amount, date, or period.
+   The instruction must name the concept the number refers to.
+   BAD:  "¿Qué monto se menciona en el decreto?"
+   GOOD: "¿Por cuántos años era válido el acuerdo de cooperación entre Colombia y la Unión Soviética firmado en 1968?"
 
-4. dato_concreto : 2 examples
-   Ask about a specific fact: a date, amount, period, location, or number mentioned
-   in the document. The instruction must ask for that specific datum.
-   Example instruction style: "¿Cuál es el monto aprobado en el artículo X?"
+5. sobre_alcance_o_aplicacion : 1 example
+   Ask about who or what a specific provision applies to.
+   The instruction must name the provision or topic.
+   BAD:  "¿A quiénes aplica la ley?"
+   GOOD: "¿A qué departamentos colombianos aplicaba la modificación de fronteras establecida en la ley de creación del Departamento de Nariño?"
 
-5. alcance_o_ambito : 1 example
-   Ask about the scope, jurisdiction, or applicability of a specific provision.
-   The instruction must reference a specific article or provision.
-   Example instruction style: "¿A quiénes aplica la disposición del artículo X?"
+6. sobre_relacion_entre_partes : 1 example
+   Ask about the legal or contractual relationship between two NAMED parties.
+   Both party names must appear in the instruction.
+   BAD:  "¿Cuál es la relación entre las partes?"
+   GOOD: "¿Cuál era la relación contractual entre el gobierno colombiano y ENERGOPROEKT según el convenio de 1968?"
 
-6. relacion_entre_partes : 1 example
-   Ask about the legal or contractual relationship between two specific parties
-   mentioned in the document.
-   Example instruction style: "¿Cuál es la relación entre [parte A] y [parte B]
-   según el documento?"
-
-7. consecuencia_o_efecto : 1 example
-   Ask about the legal consequence or effect of a specific provision or action
-   described in the document.
-   Example instruction style: "¿Qué consecuencia tiene [acción/evento] según el documento?"
+7. sobre_consecuencia_o_efecto : 1 example
+   Ask about the legal consequence or effect of a named provision or event.
+   The instruction must name the specific provision or event.
+   BAD:  "¿Qué consecuencia tiene el incumplimiento?"
+   GOOD: "¿Qué efecto legal tuvo la promulgación de la ley del 6 de agosto de 1904 sobre el territorio del antiguo Departamento del Cauca?"
 
 NOTE:
-All instructions MUST be grounded in specific content from the document.
-NEVER ask to "summarize", "list key points", "identify the main idea", or
-"reduce to keywords" — these are forbidden.
 Always produce exactly 10 examples.
+Every instruction must contain real names, amounts, dates, or topics from the document.
+NEVER use generic placeholders in the final instruction.
 
 STRICT RULES
 
@@ -145,25 +168,32 @@ Do NOT include notes.
 
 You MUST generate different types of instructions.
 Do NOT repeat instruction types.
-Each instruction MUST reference a specific element of the document.
-Use a mix of:
-- specific named entities (persons, institutions, countries)
-- specific articles or clauses
-- specific obligations or prohibitions
-- specific dates, amounts, or periods
-- specific conditions or requirements
-- specific legal relationships between parties
-- specific consequences or effects of provisions
 
-FORBIDDEN instruction patterns (do NOT use these):
-- "Summarize the document in X sentences"
-- "Identify the main idea"
-- "List key concepts"
-- "Reduce to X keywords"
-- "Classify content into essential and non-essential"
-- "Write a plain-language rewrite"
-- "Explain how the ideas relate to each other" (generic)
-- Any instruction that does not reference a specific element of the document
+Every instruction must be self-contained: a person who has not read the document
+must understand exactly what is being asked just by reading the instruction.
+This means the instruction must embed the real names, amounts, dates, and topics
+from the document — not generic references like "el decreto" or "la entidad".
+
+RULE — When referencing a legal document in the instruction:
+If the instruction mentions a decreto, ley, convenio, tratado, or acuerdo,
+it MUST identify it specifically using whatever is available in the document:
+its number, its date, its title, or the parties involved.
+BAD:  "¿Qué establece el decreto sobre la deuda?"
+GOOD: "¿Qué establece el Decreto del 14 de septiembre de 1882 sobre el crédito suplementario para la deuda nacional?"
+BAD:  "¿Qué dice el convenio entre las partes?"
+GOOD: "¿Qué obligaciones estableció el Convenio Colombia-URSS de 1968 para la empresa ENERGOPROEKT?"
+
+ABSOLUTELY FORBIDDEN instruction patterns:
+- "Summarize the document..."
+- "Identify the main idea..."
+- "List key concepts..."
+- "Reduce to X keywords..."
+- "Classify content into essential and non-essential..."
+- "What date is mentioned in the document?"
+- "What amount is approved in article X?" (article number alone is not enough)
+- "What does the entity mentioned do?" (must name the entity)
+- Any instruction that uses "el documento", "el decreto", "la ley", "el artículo X",
+  "la entidad", or "las partes" without naming the specific real-world referent
 
 You MUST extract information ONLY from the document.
 You are NOT allowed to infer, assume, or add information.
@@ -269,7 +299,7 @@ def validate_examples(parsed: dict) -> dict:
     for ex in parsed["data"]:
         if len(ex["instruction"]) < 10:
             continue
-        if len(ex["response"]) < 30:
+        if len(ex["response"]) < 3:
             continue
         if ex["context"] != "":
             continue
