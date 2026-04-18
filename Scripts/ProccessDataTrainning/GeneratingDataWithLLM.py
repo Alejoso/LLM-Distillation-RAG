@@ -22,7 +22,7 @@ from pathlib import Path
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-
+from transformers import LogitsProcessor, LogitsProcessorList
 
 logging.basicConfig(
     level=logging.INFO,
@@ -47,15 +47,19 @@ def load_model(hf_token: str):
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME, torch_dtype=torch.float16, device_map="auto"
     )
+    model.generation_config.renormalize_logits = True
 
     logger.info("CUDA available: %s", torch.cuda.is_available())
     logger.info("Model device: %s", model.device)
 
     return model, tokenizer
 
-# Generation
-def generate_questions(text: str, model, tokenizer) -> str:
-    prompt = f"""<s>[INST] <<SYS>>
+class Float32CastProcessor(LogitsProcessor):
+    def __call__(self, input_ids, scores):
+        return scores.float()
+
+def build_prompt(text: str) -> str:
+    return f"""<s>[INST] <<SYS>>
 You are a legal analyst specialized in Colombian law.
 
 You generate training data for information distillation from Colombian legal documents.
@@ -85,6 +89,7 @@ what is being asked WITHOUT needing to see the document.
 
 THIS IS WRONG (too vague):
   "¿Qué fecha se menciona en el decreto?"
+  "¿Qué se establecio en el decreto?"
   "¿Cuál es el monto aprobado?"
   "¿Qué obligación establece el artículo 1?"
   "¿Qué rol cumple la entidad mencionada?"
@@ -248,17 +253,41 @@ Generate the examples now.
 
 [/INST]"""
 
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+# Generation
+def generate_questions(text: str, model, tokenizer) -> str:
+    
+    max_context = model.config.max_position_embeddings  # 4096
+    max_new = 1500
 
-    output = model.generate(
-        **inputs,
-        max_new_tokens=3000,
-        temperature=0.2,
-        do_sample=True,
-        top_p=0.3,
-        eos_token_id=tokenizer.eos_token_id,
-        pad_token_id=tokenizer.eos_token_id,
-    )
+    # Armar el prompt sin el texto legal para medir cuánto ocupa
+    prompt_template = build_prompt("") 
+    template_tokens = len(tokenizer.encode(prompt_template))
+    available_for_text = max_context - max_new - template_tokens - 50
+
+    # Truncar el texto legal por tokens, no por caracteres
+    text_tokens = tokenizer.encode(text)
+    if len(text_tokens) > available_for_text:
+        text = tokenizer.decode(text_tokens[:available_for_text], skip_special_tokens=True)
+        logger.warning("Text truncated to %d tokens", available_for_text)
+
+    prompt = build_prompt(text)
+    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=max_context - max_new).to(model.device)
+
+    try:
+        output = model.generate(
+            **inputs,
+            max_new_tokens=max_new,
+            temperature=0.2,
+            do_sample=True,
+            top_p=0.3,
+            eos_token_id=tokenizer.eos_token_id,
+            pad_token_id=tokenizer.eos_token_id,
+            logits_processor=LogitsProcessorList([Float32CastProcessor()]),
+        )
+    except RuntimeError as e:
+        logger.error(f"Error generando: {e}")
+        torch.cuda.empty_cache()
+        return ""
 
     generated = output[0][inputs["input_ids"].shape[1]:]
     result = tokenizer.decode(generated, skip_special_tokens=True)
@@ -314,8 +343,7 @@ def process_documents(laws_folder: Path, output_file: Path, model, tokenizer, ma
     dataset = {"data": []}
     processed_count = 0
 
-    txt_files = [f for f in os.listdir(laws_folder) if f.endswith(".txt")]
-    txt_files = sorted(txt_files)
+    txt_files = sorted(f for f in os.listdir(laws_folder) if f.endswith(".txt"))
     txt_files = txt_files[start_index:]
     logger.info("Found %d .txt files starting from index %d", len(txt_files), start_index)
 
@@ -333,11 +361,8 @@ def process_documents(laws_folder: Path, output_file: Path, model, tokenizer, ma
         if "CONTENIDO:" in text:
             text = text.split("CONTENIDO:", 1)[1].strip()
 
-        text = text[:4000]
-
         try:
             output = generate_questions(text, model, tokenizer)
-
             parsed = parse_examples(output)
             parsed = validate_examples(parsed)
 
@@ -355,6 +380,10 @@ def process_documents(laws_folder: Path, output_file: Path, model, tokenizer, ma
                 dataset["data"].extend(parsed["data"])
                 processed_count += 1
                 logger.info("Successfully processed %s", file)
+
+                # Guardar incrementalmente
+                with open(output_file, "w", encoding="utf-8") as f:
+                    json.dump(dataset, f, indent=2, ensure_ascii=False)
             else:
                 logger.warning(
                     "Expected 10 examples, got %d for %s. First 500 chars:\n%s",
@@ -365,9 +394,6 @@ def process_documents(laws_folder: Path, output_file: Path, model, tokenizer, ma
 
         except Exception as e:
             logger.error("Unexpected error for %s: %s", file, e)
-
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(dataset, f, indent=2, ensure_ascii=False)
 
     logger.info("Dataset saved: %s", output_file)
     logger.info("Total samples: %d", len(dataset["data"]))
