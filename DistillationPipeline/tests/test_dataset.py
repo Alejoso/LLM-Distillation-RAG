@@ -3,7 +3,7 @@ from tests.helpers import FakeTokenizer, make_distilled_record, write_jsonl
 
 
 def test_distillation_dataset_getitem_builds_training_tensors_and_mask(tmp_path):
-    max_len = 24
+    max_len = 64
     path = tmp_path / "train.jsonl"
     record = make_distilled_record(max_len=max_len, vocab_size=256, used_rag=True)
     write_jsonl(path, [record])

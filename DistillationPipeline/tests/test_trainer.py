@@ -54,7 +54,7 @@ def test_train_student_runs_writes_logs_and_reloads_checkpoint(tmp_path, capsys)
 
 
 def test_train_student_raises_on_vocab_mismatch(tmp_path):
-    max_len = 24
+    max_len = 64
     distilled_path = tmp_path / "train.jsonl"
     checkpoint_path = tmp_path / "last.pt"
     log_file = tmp_path / "train.log"
