@@ -1,44 +1,35 @@
 #!/bin/bash
-#SBATCH --job-name=distill-compare
-#SBATCH --partition=longjobs
+#SBATCH --job-name="distill-compare"
+#SBATCH --partition=accel-2
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=64G
-#SBATCH --gres=gpu:1
-#SBATCH --time=24:00:00
-#SBATCH --output=slurm_%j.out
-#SBATCH --error=slurm_%j.err
-#SBATCH --mail-type=END,FAIL
+#SBATCH --cpus-per-task=32
+#SBATCH --mem=120G
+#SBATCH --gres=gpu:3
+#SBATCH --time=1-24:00:00
+#SBATCH --output=logs/%x_%j.out      # Standard output log (%x = job name, %j = job ID)
+#SBATCH --error=logs/%x_%j.err       # Standard error log
+#SBATCH --mail-user=atirador1@eafit.edu.co         # Your email address from user input
 
-echo "============================================"
-echo "Job ID:       $SLURM_JOB_ID"
-echo "Nodo:         $SLURM_NODELIST"
+
+
+echo "================================================="
+echo "Starting job $SLURM_JOB_ID on host $(hostname)"
+echo "Job name: $SLURM_JOB_NAME"
+echo "Partition: $SLURM_JOB_PARTITION"
+echo "Number of nodes: $SLURM_NNODES"
+echo "Total number of tasks: $SLURM_NTASKS"
 echo "GPUs:         $CUDA_VISIBLE_DEVICES"
 echo "Inicio:       $(date)"
-echo "============================================"
+echo "================================================="
+echo
 
 # Cargar modulos (ajustar segun Apolo)
-module load python/3.10
-module load cuda/11.8
+module load mods_alphafold/python-3.10.2-gcc-9.3.0-j6w76qf
+module load cuda/11.3.0_Intel_oneAPI-2022_update-1
+source /home/ugr-atirador1/LLM-Distillation-RAG/venv/bin/activate
+# cd /home/ugr-atirador1/LLM-Distillation-RAG/Scripts/ProccessDataTrainning
 
-# Entorno virtual
-VENV_DIR="$HOME/envs/distillation"
-if [ ! -d "$VENV_DIR" ]; then
-    echo "Creando entorno virtual..."
-    python -m venv "$VENV_DIR"
-    source "$VENV_DIR/bin/activate"
-    pip install --upgrade pip
-    pip install -r requirements_apolo.txt
-else
-    source "$VENV_DIR/bin/activate"
-fi
-
-WORK_DIR="$(dirname "$(readlink -f "$0")")"
-cd "$WORK_DIR"
-
-echo "Directorio:   $WORK_DIR"
-echo "Python:       $(which python)"
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null
 
 # Ejecutar pipeline completo (2 destilaciones + evaluacion)
