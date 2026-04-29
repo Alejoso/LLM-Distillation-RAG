@@ -148,6 +148,8 @@ donde:
 
 con T=4.0 (temperatura), alpha=0.7, z_s y z_t los logits del student y teacher respectivamente.
 
+**Almacenamiento eficiente de logits:** Dado que la matriz completa de logits del teacher tiene dimensiones L x V (longitud de secuencia x tamano de vocabulario), almacenarla directamente resulta prohibitivo. Para un vocabulario de 32,000 tokens y longitud de secuencia de 2,048, cada muestra generaria ~500 MB en formato texto. En su lugar, se almacenan unicamente los top-K logits (K=50) por posicion en formato binario (.pt, float16), reduciendo el almacenamiento por muestra de ~500 MB a ~800 KB — una reduccion de ~600x. Durante el entrenamiento, el tensor completo se reconstruye mediante `scatter_`, asignando un valor de piso (-10) a las posiciones no cubiertas por el top-K, lo cual preserva la forma de la distribucion softmax sin afectar significativamente la divergencia KL.
+
 **Configuracion de entrenamiento:**
 
 | Parametro | Valor |
@@ -158,6 +160,7 @@ con T=4.0 (temperatura), alpha=0.7, z_s y z_t los logits del student y teacher r
 | Batch size | 2 |
 | Epocas | 3 |
 | Max sequence length | 2048 tokens |
+| Top-K logits almacenados | 50 |
 | Alpha | 0.7 |
 | Temperature | 4.0 |
 
@@ -175,10 +178,12 @@ con T=4.0 (temperatura), alpha=0.7, z_s y z_t los logits del student y teacher r
    b. Si no:
       - p_i = BuildPrompt(x_i)
    c. y_i, z_t_i = M_T(p_i)       # Respuesta + logits del teacher
-   d. Guardar (p_i, y_i, z_t_i) en JSONL
+   d. z_hat_t_i = TopK(z_t_i, K)  # Retener top-K logits
+   e. Guardar (p_i, y_i) en JSONL; z_hat_t_i en .pt binario
 4. Para cada epoca = 1 to E:
    a. Para cada batch B del dataset:
-      - z_s = M_S(B)              # Logits del student
+      - z_t = Reconstruct(z_hat_t, V)  # Expandir a vocabulario completo
+      - z_s = M_S(B)                   # Logits del student
       - L = alpha * L_soft + (1 - alpha) * L_hard
       - Actualizar M_S con gradientes de L
 ```

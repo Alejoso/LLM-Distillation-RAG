@@ -41,6 +41,7 @@ DEFAULTS = {
     "alpha": 0.7,
     "max_len": 2048,
     "max_new_tokens": 512,
+    "top_k_logits": 50,
     "save_steps": 1000,
     "rag_top_k_initial": 10,
     "rag_top_k_final": 2,
@@ -287,7 +288,11 @@ def generate_distillation_data(
     data = load_json(processed_path)
     max_len = config["max_len"]
     max_new_tokens = config["max_new_tokens"]
+    top_k = config["top_k_logits"]
     device = get_device()
+
+    logits_dir = exp_dir / "logits"
+    logits_dir.mkdir(parents=True, exist_ok=True)
 
     logging.info(f"[{experiment_name}] Cargando teacher: {config['teacher_name']}...")
     tokenizer = AutoTokenizer.from_pretrained(config["teacher_name"])
@@ -298,7 +303,7 @@ def generate_distillation_data(
         config["teacher_name"], torch_dtype=torch.float16, device_map="auto"
     )
     teacher.eval()
-    logging.info(f"[{experiment_name}] Teacher cargado. Generando datos...")
+    logging.info(f"[{experiment_name}] Teacher cargado. Generando datos (top_k={top_k})...")
 
     total = len(data)
     with open(distilled_path, "w", encoding="utf-8") as out:
@@ -342,7 +347,12 @@ def generate_distillation_data(
             with torch.no_grad():
                 logits = teacher(**full_tokens).logits
 
-            logits_clamped = torch.clamp(logits.squeeze(0), -10, 10).cpu().tolist()
+            logits_clamped = torch.clamp(logits.squeeze(0), -10, 10)
+            top_values, top_indices = logits_clamped.topk(top_k, dim=-1)
+            torch.save({
+                "values": top_values.half().cpu(),
+                "indices": top_indices.cpu(),
+            }, logits_dir / f"{idx}.pt")
 
             record = {
                 "id": sample.get("id", idx),
@@ -351,7 +361,6 @@ def generate_distillation_data(
                 "used_rag": bool(retrieved_contexts),
                 "retrieved_contexts": retrieved_contexts,
                 "teacher_output": teacher_output,
-                "logits": logits_clamped,
             }
             out.write(json.dumps(record, ensure_ascii=False) + "\n")
 
@@ -363,6 +372,7 @@ def generate_distillation_data(
         "experiment": experiment_name,
         "total_samples": total,
         "rag_enabled": use_rag,
+        "top_k_logits": top_k,
     })
     logging.info(f"[{experiment_name}] Datos de destilacion generados.")
 
@@ -371,11 +381,13 @@ def generate_distillation_data(
 # Dataset PyTorch
 # ---------------------------------------------------------------------------
 class DistillationDataset(Dataset):
-    def __init__(self, path: Path, tokenizer, max_len: int):
+    def __init__(self, path: Path, tokenizer, max_len: int, vocab_size: int):
         with open(path, "r", encoding="utf-8") as f:
             self.data = [json.loads(line) for line in f if line.strip()]
+        self.logits_dir = path.parent / "logits"
         self.tokenizer = tokenizer
         self.max_len = max_len
+        self.vocab_size = vocab_size
 
     def __len__(self):
         return len(self.data)
@@ -401,16 +413,20 @@ class DistillationDataset(Dataset):
         input_ids = tokens["input_ids"].squeeze(0)
         attention_mask = tokens["attention_mask"].squeeze(0)
 
-        teacher_logits = torch.tensor(sample["logits"], dtype=torch.float32)
-        if teacher_logits.size(0) > self.max_len:
-            teacher_logits = teacher_logits[: self.max_len]
-        elif teacher_logits.size(0) < self.max_len:
-            pad = torch.zeros(
-                self.max_len - teacher_logits.size(0),
-                teacher_logits.size(1),
-                dtype=teacher_logits.dtype,
-            )
-            teacher_logits = torch.cat([teacher_logits, pad])
+        # Cargar top-K logits desde archivo binario y reconstruir tensor completo
+        logits_data = torch.load(self.logits_dir / f"{idx}.pt", weights_only=True)
+        top_values = logits_data["values"].float()  # (seq_len, top_k)
+        top_indices = logits_data["indices"]         # (seq_len, top_k)
+
+        seq_len = top_values.size(0)
+        # Rellenar con -10 (valor minimo de clamp) para tokens no top-K
+        teacher_logits = torch.full(
+            (self.max_len, self.vocab_size), -10.0, dtype=torch.float32
+        )
+        actual_len = min(seq_len, self.max_len)
+        teacher_logits[:actual_len].scatter_(
+            1, top_indices[:actual_len], top_values[:actual_len]
+        )
 
         response_mask = torch.zeros(self.max_len, dtype=torch.float32)
         prompt_len = min(prompt_tokens["input_ids"].size(1), self.max_len)
@@ -446,7 +462,10 @@ def train_student(output_dir: Path, experiment_name: str, config: dict):
         config["student_name"], torch_dtype=torch.float16, device_map="auto"
     )
 
-    dataset = DistillationDataset(distilled_path, tokenizer, config["max_len"])
+    student_vocab = student.config.vocab_size
+    dataset = DistillationDataset(
+        distilled_path, tokenizer, config["max_len"], student_vocab
+    )
     loader = DataLoader(dataset, batch_size=config["batch_size"], shuffle=True)
 
     optimizer = torch.optim.AdamW(student.parameters(), lr=config["lr"])
@@ -459,15 +478,6 @@ def train_student(output_dir: Path, experiment_name: str, config: dict):
         optimizer.load_state_dict(ckpt["optimizer"])
         start_epoch = ckpt["epoch"]
         global_step = ckpt["step"]
-
-    # Validar vocabulario
-    sample_batch = next(iter(loader))
-    teacher_vocab = sample_batch["teacher_logits"].shape[-1]
-    student_vocab = student.config.vocab_size
-    if teacher_vocab != student_vocab:
-        raise ValueError(
-            f"Vocab mismatch: teacher_logits={teacher_vocab}, student={student_vocab}"
-        )
 
     student.train()
     alpha = config["alpha"]

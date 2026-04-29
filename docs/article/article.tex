@@ -173,6 +173,8 @@ donde:
 
 con $T=4.0$ (temperatura), $\alpha=0.7$, $z^s$ y $z^t$ los logits del student y teacher respectivamente, y $\sigma$ la funci\'on softmax.
 
+\textbf{Almacenamiento eficiente de logits:} Dado que la matriz completa de logits del teacher tiene dimensiones $L \times V$ (longitud de secuencia $\times$ tama\~no de vocabulario), almacenarla directamente resulta prohibitivo en t\'erminos de espacio en disco. Para un vocabulario de 32,000 tokens y longitud de secuencia de 2,048, cada muestra generar\'ia $\sim$500\,MB en formato texto. En su lugar, se almacenan \'unicamente los top-$K$ logits ($K=50$) por posici\'on en formato binario (\texttt{.pt}, float16), reduciendo el almacenamiento por muestra de $\sim$500\,MB a $\sim$800\,KB ---una reducci\'on de $\sim$600$\times$---. Durante el entrenamiento, el tensor completo se reconstruye mediante \texttt{scatter\_}, asignando un valor de piso ($-10$) a las posiciones no cubiertas por el top-$K$, lo cual preserva la forma de la distribuci\'on softmax sin afectar significativamente la divergencia KL.
+
 \textbf{Configuraci\'on de entrenamiento:}
 \begin{itemize}
     \item Teacher: \texttt{meta-llama/Llama-2-7b-chat-hf} ($\sim$7B par\'ametros)
@@ -180,6 +182,7 @@ con $T=4.0$ (temperatura), $\alpha=0.7$, $z^s$ y $z^t$ los logits del student y 
     \item Optimizer: AdamW, $lr = 2 \times 10^{-5}$
     \item Batch size: 2, \'epocas: 3
     \item Longitud m\'axima de secuencia: 2048 tokens
+    \item Top-$K$ logits almacenados: 50
     \item Gradient clipping aplicado
 \end{itemize}
 
@@ -199,10 +202,12 @@ con $T=4.0$ (temperatura), $\alpha=0.7$, $z^s$ y $z^t$ los logits del student y 
         \State $p_i \leftarrow \text{BuildPrompt}(x_i)$
     \EndIf
     \State $y_i, z_i^t \leftarrow M_T(p_i)$ \Comment{Respuesta + logits}
-    \State Guardar $(p_i, y_i, z_i^t)$ en JSONL
+    \State $\hat{z}_i^t \leftarrow \text{TopK}(z_i^t, K)$ \Comment{Retener top-$K$ logits}
+    \State Guardar $(p_i, y_i)$ en JSONL; $\hat{z}_i^t$ en \texttt{.pt}
 \EndFor
 \For{\'epoca $= 1$ to $E$}
     \For{cada batch $B$ del dataset}
+        \State $z^t \leftarrow \text{Reconstruct}(\hat{z}^t, V)$ \Comment{Expandir a vocabulario completo}
         \State $z^s \leftarrow M_S(B)$ \Comment{Logits del student}
         \State $\mathcal{L} \leftarrow \alpha \cdot \mathcal{L}_{\text{soft}} + (1-\alpha) \cdot \mathcal{L}_{\text{hard}}$
         \State Actualizar $M_S$ con $\nabla \mathcal{L}$
