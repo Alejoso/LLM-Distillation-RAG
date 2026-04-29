@@ -303,11 +303,57 @@ def generate_distillation_data(
         config["teacher_name"], torch_dtype=torch.float16, device_map="auto"
     )
     teacher.eval()
+    # Detectar progreso previo para reanudar si se cayo
+    already_done = {int(f.stem) for f in logits_dir.glob("*.pt")}
+    start_idx = len(already_done) if already_done else 0
+    if start_idx > 0:
+        # Verificar que el JSONL tiene las mismas lineas que los .pt ya guardados
+        existing_lines = 0
+        if distilled_path.exists():
+            with open(distilled_path, "r", encoding="utf-8") as f:
+                existing_lines = sum(1 for _ in f)
+        if existing_lines != start_idx:
+            # Reconstruir JSONL desde los datos ya procesados para mantener consistencia
+            logging.warning(
+                f"[{experiment_name}] JSONL tiene {existing_lines} lineas pero hay "
+                f"{start_idx} logits .pt. Reconstruyendo JSONL..."
+            )
+            with open(distilled_path, "w", encoding="utf-8") as out:
+                for i in range(start_idx):
+                    sample = data[i]
+                    instruction = sample["instruction"]
+                    retrieved_contexts = []
+                    if use_rag and rag_retriever:
+                        retrieved_contexts = rag_retriever.retrieve(instruction)
+                    prompt = (
+                        build_rag_prompt(instruction, retrieved_contexts)
+                        if retrieved_contexts
+                        else build_prompt(instruction)
+                    )
+                    # Necesitamos regenerar teacher_output; no lo tenemos guardado
+                    # Por seguridad, marcamos que debemos regenerar desde cero
+                    pass
+                # Si no podemos reconstruir el JSONL fiablemente, regenerar desde cero
+                start_idx = 0
+                already_done = set()
+                # Limpiar .pt huerfanos
+                for f in logits_dir.glob("*.pt"):
+                    f.unlink()
+            logging.warning(f"[{experiment_name}] Regenerando desde cero por inconsistencia.")
+
+        else:
+            logging.info(
+                f"[{experiment_name}] Reanudando desde muestra {start_idx}/{len(data)} "
+                f"({start_idx} ya procesadas)."
+            )
+
     logging.info(f"[{experiment_name}] Teacher cargado. Generando datos (top_k={top_k})...")
 
     total = len(data)
-    with open(distilled_path, "w", encoding="utf-8") as out:
-        for idx, sample in enumerate(data):
+    file_mode = "a" if start_idx > 0 else "w"
+    with open(distilled_path, file_mode, encoding="utf-8") as out:
+        for idx in range(start_idx, total):
+            sample = data[idx]
             instruction = sample["instruction"]
             retrieved_contexts = []
 
@@ -363,6 +409,7 @@ def generate_distillation_data(
                 "teacher_output": teacher_output,
             }
             out.write(json.dumps(record, ensure_ascii=False) + "\n")
+            out.flush()
 
             if (idx + 1) % 5 == 0 or (idx + 1) == total:
                 logging.info(f"  [{experiment_name}] Teacher inference: {idx+1}/{total}")
