@@ -34,9 +34,12 @@ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null
 
 # Ejecutar pipeline completo (2 destilaciones + evaluacion)
 # Si ChromaDB no existe, automaticamente solo corre sin RAG
+# Usar --reset solo la primera vez para limpiar checkpoints viejos.
+# En corridas posteriores (o si se reanuda tras una caida), quitar --reset.
 python pipeline_destilacion_apolo.py \
     --data_dir ./data \
-    --output_dir ./outputs
+    --output_dir ./outputs \
+    --reset
 
 EXIT_CODE=$?
 
