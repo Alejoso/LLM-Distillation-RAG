@@ -38,8 +38,7 @@ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null
 # En corridas posteriores (o si se reanuda tras una caida), quitar --reset.
 python pipeline_destilacion_apolo.py \
     --data_dir ./data \
-    --output_dir ./outputs \
-    --reset
+    --output_dir ./outputs
 
 EXIT_CODE=$?
 
