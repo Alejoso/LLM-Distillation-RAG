@@ -505,8 +505,12 @@ def train_student(output_dir: Path, experiment_name: str, config: dict):
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
+    # Pesos master en FP32 (V100 no tiene bf16 nativo); el forward usa FP16
+    # via autocast + GradScaler. Entrenar con torch_dtype=float16 directo
+    # corrompe los pesos al primer optimizer.step() y produce NaN en todo
+    # el grafo desde el segundo batch en adelante.
     student = AutoModelForCausalLM.from_pretrained(
-        config["student_name"], torch_dtype=torch.float16, device_map="auto"
+        config["student_name"], torch_dtype=torch.float32, device_map="auto"
     )
 
     student_vocab = student.config.vocab_size
@@ -516,6 +520,7 @@ def train_student(output_dir: Path, experiment_name: str, config: dict):
     loader = DataLoader(dataset, batch_size=config["batch_size"], shuffle=True)
 
     optimizer = torch.optim.AdamW(student.parameters(), lr=config["lr"])
+    scaler = torch.cuda.amp.GradScaler()
     start_epoch, global_step = 0, 0
 
     if ckpt_file.exists():
@@ -523,6 +528,8 @@ def train_student(output_dir: Path, experiment_name: str, config: dict):
         ckpt = torch.load(ckpt_file, map_location=device, weights_only=False)
         student.load_state_dict(ckpt["model"])
         optimizer.load_state_dict(ckpt["optimizer"])
+        if "scaler" in ckpt:
+            scaler.load_state_dict(ckpt["scaler"])
         start_epoch = ckpt["epoch"]
         global_step = ckpt["step"]
 
@@ -548,25 +555,27 @@ def train_student(output_dir: Path, experiment_name: str, config: dict):
             teacher_logits = batch["teacher_logits"].to(device)
             response_mask = batch["response_mask"].to(device)
 
-            student_logits = student(
-                input_ids=input_ids, attention_mask=attention_mask
-            ).logits
+            with torch.cuda.amp.autocast(dtype=torch.float16):
+                student_logits = student(
+                    input_ids=input_ids, attention_mask=attention_mask
+                ).logits
 
-            # Shift causal
-            s_s = student_logits[:, :-1, :]
-            s_t = teacher_logits[:, 1:, :]
-            s_labels = input_ids[:, 1:]
-            s_mask = response_mask[:, 1:]
+                # Shift causal
+                s_s = student_logits[:, :-1, :]
+                s_t = teacher_logits[:, 1:, :]
+                s_labels = input_ids[:, 1:]
+                s_mask = response_mask[:, 1:]
 
-            # Soft loss
+                # Soft/hard loss computados en FP32 fuera del autocast para
+                # evitar overflow en exp() del softmax con vocab grande.
+            s_s_f32 = s_s.float()
             t_probs = F.softmax(s_t / T, dim=-1)
-            s_log_probs = F.log_softmax(s_s / T, dim=-1)
+            s_log_probs = F.log_softmax(s_s_f32 / T, dim=-1)
             soft_tok = F.kl_div(s_log_probs, t_probs, reduction="none").sum(dim=-1)
             soft_loss = (soft_tok * s_mask).sum() / (s_mask.sum() + 1e-8) * (T**2)
 
-            # Hard loss
             hard_tok = F.cross_entropy(
-                s_s.reshape(-1, s_s.size(-1)),
+                s_s_f32.reshape(-1, s_s_f32.size(-1)),
                 s_labels.reshape(-1),
                 reduction="none",
             ).view_as(s_labels)
@@ -576,12 +585,15 @@ def train_student(output_dir: Path, experiment_name: str, config: dict):
 
             if torch.isnan(loss) or torch.isinf(loss):
                 logging.warning(f"[{experiment_name}] NaN/Inf paso {global_step}, skip")
+                optimizer.zero_grad(set_to_none=True)
                 continue
 
-            optimizer.zero_grad()
-            loss.backward()
+            optimizer.zero_grad(set_to_none=True)
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(student.parameters(), 1.0)
-            optimizer.step()
+            scaler.step(optimizer)
+            scaler.update()
 
             epoch_loss += loss.item()
             valid_batches += 1
@@ -590,7 +602,9 @@ def train_student(output_dir: Path, experiment_name: str, config: dict):
 
             if global_step % config["save_steps"] == 0:
                 torch.save(
-                    {"model": student.state_dict(), "optimizer": optimizer.state_dict(),
+                    {"model": student.state_dict(),
+                     "optimizer": optimizer.state_dict(),
+                     "scaler": scaler.state_dict(),
                      "epoch": epoch, "step": global_step},
                     ckpt_file,
                 )
@@ -603,10 +617,18 @@ def train_student(output_dir: Path, experiment_name: str, config: dict):
                 }, ensure_ascii=False) + "\n")
 
         avg_loss = epoch_loss / max(valid_batches, 1)
+        soft_str = f"{last_soft:.4f}" if last_soft is not None else "N/A"
+        hard_str = f"{last_hard:.4f}" if last_hard is not None else "N/A"
         logging.info(
             f"[{experiment_name}] Epoca {epoch+1}/{total_epochs} | "
-            f"avg_loss={avg_loss:.4f} | soft={last_soft:.4f} | hard={last_hard:.4f}"
+            f"avg_loss={avg_loss:.4f} | soft={soft_str} | hard={hard_str} | "
+            f"valid_batches={valid_batches}"
         )
+        if valid_batches == 0:
+            raise RuntimeError(
+                f"[{experiment_name}] Epoca {epoch+1}: 0 batches validos "
+                f"(todos NaN/Inf). Entrenamiento corrupto, abortando."
+            )
 
     # Guardar modelo final
     final_dir = exp_dir / "final_model"
