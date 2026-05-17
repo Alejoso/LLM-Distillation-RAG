@@ -20,6 +20,7 @@ import re
 import sys
 import time
 from pathlib import Path
+import gc
 
 import numpy as np
 import torch
@@ -137,11 +138,27 @@ def save_report(output_dir: Path, name: str, metrics: dict):
 
 
 def free_model(*models):
+    """Libera modelos/tensores de GPU agresivamente.
+    
+    Mueve a CPU primero (rompe referencias de CUDA), borra,
+    fuerza GC de Python, y limpia el caching allocator de PyTorch.
+    """
     for m in models:
-        if m is not None:
-            del m
+        if m is None:
+            continue
+        # Si es un nn.Module, mandarlo a CPU primero suelta los buffers GPU
+        if hasattr(m, "cpu"):
+            try:
+                m.cpu()
+            except Exception:
+                pass
+        del m
+    
+    gc.collect()
+    
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
 
 
 # ---------------------------------------------------------------------------
@@ -644,8 +661,8 @@ def train_student(output_dir: Path, experiment_name: str, config: dict):
     })
     logging.info(f"[{experiment_name}] Modelo guardado en {final_dir}")
 
+    del optimizer, scaler, loader, dataset
     free_model(student)
-
 
 # ---------------------------------------------------------------------------
 # Paso 4: Evaluacion comparativa (LLM-as-Judge)
@@ -942,6 +959,13 @@ def run_pipeline(args):
         logging.info(f"[RUN]  {step}")
         train_student(output_dir, "no_rag", config)
         mark_done(output_dir, step)
+
+    if torch.cuda.is_available():
+        free_b, total_b = torch.cuda.mem_get_info()
+        logging.info(
+            f"[MEM] GPU tras no_rag: "
+            f"{free_b/1e9:.2f}/{total_b/1e9:.2f} GB libres"
+        )
 
     # ===== PASO 3B: Entrenar student CON RAG =====
     if rag_available:
