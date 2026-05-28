@@ -740,22 +740,127 @@ def compute_weighted_score(scores: dict) -> float:
     return round(total, 4)
 
 
-def evaluate_models(output_dir: Path, config: dict, experiments_run: list[str]):
-    """Evalua modelo base + cada experimento destilado."""
-    processed_path = output_dir / "processed.json"
-    data = load_json(processed_path)
-    device = get_device()
+def _load_eval_subset(eval_dir: Path, data: list, subset_size: int | None, seed: int) -> list:
+    """Devuelve un subset aleatorio determinista compartido entre todas las fases.
 
-    # --- Definir modelos a evaluar ---
-    models_to_eval = {}
+    Si ``subset_size`` es None, <=0 o >= len(data), se usa el conjunto completo.
+    El subset se persiste a ``eval_subset.json`` para que reanudaciones y otras
+    fases evaluen exactamente los mismos items. Borrar ese archivo (o el
+    directorio eval/ entero) regenera el subset con el seed actual.
+    """
+    if subset_size is None or subset_size <= 0 or subset_size >= len(data):
+        logging.info(f"Eval set completo: {len(data)} items.")
+        return data
 
-    # A) Modelo base (student sin destilacion)
-    models_to_eval["base_student"] = {
-        "path": config["student_name"],  # desde HuggingFace directamente
-        "label": "Student base (sin destilacion)",
+    subset_path = eval_dir / "eval_subset.json"
+    if subset_path.exists():
+        subset = load_json(subset_path)
+        logging.info(
+            f"Eval subset reusado: {len(subset)} items desde {subset_path.name} "
+            f"(borra eval/ para regenerar)."
+        )
+        return subset
+
+    rng = random.Random(seed)
+    subset = rng.sample(data, subset_size)
+    save_json(subset, subset_path)
+    logging.info(
+        f"Eval subset creado: {len(subset)} items (seed={seed}) -> {subset_path.name}"
+    )
+    return subset
+
+
+def _read_done_items(items_path: Path) -> tuple[set, list]:
+    """Lee items ya evaluados (JSONL) y devuelve (set de ids, lista de records)."""
+    if not items_path.exists():
+        return set(), []
+    records = []
+    with items_path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                records.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    done_ids = {r["id"] for r in records if "id" in r}
+    return done_ids, records
+
+
+def _summarize(records: list, model_key: str, label: str) -> dict:
+    scored = [r for r in records if r.get("scores")]
+    avg_scores = {}
+    if scored:
+        for dim in JUDGE_WEIGHTS:
+            key = f"{dim}_score"
+            vals = [r["scores"].get(key, 0) for r in scored]
+            avg_scores[f"avg_{dim}"] = round(sum(vals) / len(vals), 4)
+        weighted_vals = [r.get("weighted_score", 0) for r in scored]
+        avg_scores["avg_weighted"] = round(sum(weighted_vals) / len(weighted_vals), 4)
+    return {
+        "model_key": model_key,
+        "label": label,
+        "num_evaluated": len(records),
+        "num_scored": len(scored),
+        "averages": avg_scores,
+        "results": records,
     }
 
-    # B) Modelos destilados
+
+def _rebuild_comparison(eval_dir: Path, experiments_run: list[str]) -> dict:
+    """Reconstruye comparison.json a partir de los *_results.json que existan."""
+    comparison = {"experiments": experiments_run, "models": {}}
+    for path in sorted(eval_dir.glob("*_results.json")):
+        try:
+            summary = load_json(path)
+        except Exception:
+            continue
+        mk = summary.get("model_key") or path.stem.replace("_results", "")
+        comparison["models"][mk] = {
+            "label": summary.get("label", mk),
+            "averages": summary.get("averages", {}),
+            "num_evaluated": summary.get("num_evaluated", 0),
+        }
+    save_json(comparison, eval_dir / "comparison.json")
+    return comparison
+
+
+def evaluate_models(
+    output_dir: Path,
+    config: dict,
+    experiments_run: list[str],
+    only_models: list[str] | None = None,
+    eval_subset_size: int | None = None,
+    eval_seed: int = 42,
+):
+    """Evalua modelo base + cada experimento destilado.
+
+    Subset y reanudacion:
+    - ``eval_subset_size``: si se proporciona, se evalua sobre un subset aleatorio
+      determinista compartido por todas las fases (ver ``_load_eval_subset``).
+    - Cada item se persiste a ``eval/{model_key}_items.jsonl`` al instante, de
+      forma que un kill (timeout SLURM) pierde a lo sumo el item en curso.
+    - ``only_models``: lista de model_keys (e.g. ['base_student', 'no_rag']) para
+      correr solo esas fases. Permite lanzar 3 jobs SLURM en paralelo, uno por
+      modelo. La comparacion se reconstruye desde los resultados disponibles.
+    """
+    processed_path = output_dir / "processed.json"
+    data = load_json(processed_path)
+    eval_dir = output_dir / "eval"
+    eval_dir.mkdir(parents=True, exist_ok=True)
+    device = get_device()
+
+    data = _load_eval_subset(eval_dir, data, eval_subset_size, eval_seed)
+    total_subset = len(data)
+
+    # --- Definir modelos a evaluar ---
+    models_to_eval = {
+        "base_student": {
+            "path": config["student_name"],
+            "label": "Student base (sin destilacion)",
+        },
+    }
     for exp in experiments_run:
         final_dir = output_dir / exp / "final_model"
         if final_dir.exists():
@@ -764,23 +869,63 @@ def evaluate_models(output_dir: Path, config: dict, experiments_run: list[str]):
                 "label": f"Student destilado ({exp})",
             }
 
-    # --- Cargar juez ---
-    logging.info(f"Cargando modelo juez: {config['judge_name']}...")
-    judge_tokenizer = AutoTokenizer.from_pretrained(config["judge_name"])
-    if judge_tokenizer.pad_token is None:
-        judge_tokenizer.pad_token = judge_tokenizer.eos_token
-    judge_model = AutoModelForCausalLM.from_pretrained(
-        config["judge_name"], torch_dtype=torch.float16, device_map="auto"
-    )
-    judge_model.eval()
-    logging.info("Juez cargado.")
+    if only_models:
+        keep = set(only_models)
+        unknown = keep - set(models_to_eval.keys())
+        if unknown:
+            logging.warning(f"only_models ignorados (desconocidos): {sorted(unknown)}")
+        models_to_eval = {k: v for k, v in models_to_eval.items() if k in keep}
+        if not models_to_eval:
+            logging.error("Ningun modelo a evaluar tras filtrar por only_models.")
+            return _rebuild_comparison(eval_dir, experiments_run)
 
-    all_results = {}
+    # --- Determinar trabajo pendiente por modelo ---
+    pending = {}
+    for mk in models_to_eval:
+        items_path = eval_dir / f"{mk}_items.jsonl"
+        done_ids, _ = _read_done_items(items_path)
+        pending[mk] = [s for s in data if s.get("id") not in done_ids]
+
+    work_needed = any(remaining for remaining in pending.values())
+
+    judge_model = None
+    judge_tokenizer = None
+    if work_needed:
+        logging.info(f"Cargando modelo juez: {config['judge_name']}...")
+        judge_tokenizer = AutoTokenizer.from_pretrained(config["judge_name"])
+        if judge_tokenizer.pad_token is None:
+            judge_tokenizer.pad_token = judge_tokenizer.eos_token
+        judge_model = AutoModelForCausalLM.from_pretrained(
+            config["judge_name"], torch_dtype=torch.float16, device_map="auto"
+        )
+        judge_model.eval()
+        logging.info("Juez cargado.")
 
     for model_key, model_info in models_to_eval.items():
-        logging.info(f"Evaluando: {model_info['label']}...")
+        items_path = eval_dir / f"{model_key}_items.jsonl"
+        done_ids, prior_records = _read_done_items(items_path)
+        remaining = pending[model_key]
 
-        # Cargar modelo a evaluar
+        if not remaining:
+            logging.info(
+                f"  [{model_key}] Ya completo: {len(prior_records)}/{total_subset}."
+            )
+            summary = _summarize(prior_records, model_key, model_info["label"])
+            save_json(summary, eval_dir / f"{model_key}_results.json")
+            _rebuild_comparison(eval_dir, experiments_run)
+            continue
+
+        if done_ids:
+            logging.info(
+                f"  [{model_key}] Reanudando: {len(done_ids)} hechos, "
+                f"faltan {len(remaining)}/{total_subset}."
+            )
+        else:
+            logging.info(
+                f"  [{model_key}] Empezando evaluacion sobre {total_subset} items."
+            )
+
+        logging.info(f"Evaluando: {model_info['label']}...")
         eval_tokenizer = AutoTokenizer.from_pretrained(model_info["path"])
         if eval_tokenizer.pad_token is None:
             eval_tokenizer.pad_token = eval_tokenizer.eos_token
@@ -789,91 +934,59 @@ def evaluate_models(output_dir: Path, config: dict, experiments_run: list[str]):
         )
         eval_model.eval()
 
-        results = []
-        for idx, sample in enumerate(data):
-            instruction = sample["instruction"]
-            reference = sample.get("reference", "")
+        done_count = len(done_ids)
+        with items_path.open("a", encoding="utf-8") as items_f:
+            for sample in remaining:
+                instruction = sample["instruction"]
+                reference = sample.get("reference", "")
 
-            # Generar respuesta
-            answer = generate_model_response(
-                eval_model, eval_tokenizer, device, instruction
-            )
+                answer = generate_model_response(
+                    eval_model, eval_tokenizer, device, instruction
+                )
+                scores = judge_response(
+                    judge_model, judge_tokenizer, device,
+                    instruction, answer, reference
+                )
+                weighted = compute_weighted_score(scores)
+                record = {
+                    "id": sample.get("id"),
+                    "instruction": instruction,
+                    "answer": answer,
+                    "reference": reference,
+                    "scores": scores,
+                    "weighted_score": weighted,
+                }
+                items_f.write(json.dumps(record, ensure_ascii=False) + "\n")
+                items_f.flush()
+                done_count += 1
 
-            # Evaluar con juez
-            scores = judge_response(
-                judge_model, judge_tokenizer, device,
-                instruction, answer, reference
-            )
+                if done_count % 5 == 0 or done_count == total_subset:
+                    logging.info(f"  [{model_key}] Evaluado: {done_count}/{total_subset}")
 
-            weighted = compute_weighted_score(scores)
-            results.append({
-                "id": sample.get("id", idx),
-                "instruction": instruction,
-                "answer": answer,
-                "reference": reference,
-                "scores": scores,
-                "weighted_score": weighted,
-            })
-
-            if (idx + 1) % 5 == 0 or (idx + 1) == len(data):
-                logging.info(f"  [{model_key}] Evaluado: {idx+1}/{len(data)}")
-
-        # Calcular promedios
-        scored = [r for r in results if r["scores"]]
-        avg_scores = {}
-        if scored:
-            for dim in JUDGE_WEIGHTS:
-                key = f"{dim}_score"
-                vals = [r["scores"].get(key, 0) for r in scored]
-                avg_scores[f"avg_{dim}"] = round(sum(vals) / len(vals), 4)
-            weighted_vals = [r["weighted_score"] for r in scored]
-            avg_scores["avg_weighted"] = round(sum(weighted_vals) / len(weighted_vals), 4)
-
-        summary = {
-            "model_key": model_key,
-            "label": model_info["label"],
-            "num_evaluated": len(results),
-            "num_scored": len(scored),
-            "averages": avg_scores,
-            "results": results,
-        }
-        all_results[model_key] = summary
-
-        # Guardar resultados individuales
-        save_json(summary, output_dir / "eval" / f"{model_key}_results.json")
-        logging.info(
-            f"  [{model_key}] Promedios: {avg_scores}"
-        )
+        _, all_records = _read_done_items(items_path)
+        summary = _summarize(all_records, model_key, model_info["label"])
+        save_json(summary, eval_dir / f"{model_key}_results.json")
+        logging.info(f"  [{model_key}] Promedios: {summary['averages']}")
 
         free_model(eval_model)
+        _rebuild_comparison(eval_dir, experiments_run)
 
-    free_model(judge_model)
+    if judge_model is not None:
+        free_model(judge_model)
 
-    # --- Tabla comparativa ---
-    comparison = {
-        "experiments": experiments_run,
-        "models": {},
-    }
-    for mk, ms in all_results.items():
-        comparison["models"][mk] = {
-            "label": ms["label"],
-            "averages": ms["averages"],
-        }
-
-    save_json(comparison, output_dir / "eval" / "comparison.json")
+    comparison = _rebuild_comparison(eval_dir, experiments_run)
     save_report(output_dir, "04_evaluation", comparison)
 
-    # Imprimir tabla
     logging.info("=" * 70)
     logging.info("RESULTADOS COMPARATIVOS")
     logging.info("=" * 70)
     header = f"{'Modelo':<35} {'Acc':>6} {'Rel':>6} {'Com':>6} {'Cla':>6} {'Total':>7}"
     logging.info(header)
     logging.info("-" * 70)
-    for mk, ms in all_results.items():
+    for mk, ms in comparison.get("models", {}).items():
         avgs = ms.get("averages", {})
         logging.info(
-            f"{ms['label']:<35} "
+            f"{ms.get('label', mk):<35} "
             f"{avgs.get('avg_accuracy', 0):>6.2f} "
             f"{avgs.get('avg_relevance', 0):>6.2f} "
             f"{avgs.get('avg_completeness', 0):>6.2f} "
@@ -923,59 +1036,62 @@ def run_pipeline(args):
         else:
             logging.warning(f"ChromaDB no encontrada en {chroma_path}. Experimento con RAG no se ejecutara.")
 
-    # ===== PASO 1: Procesar dataset (compartido) =====
-    step = "01_process_dataset"
-    if step_done(output_dir, step):
-        logging.info(f"[SKIP] {step}")
+    if args.only_eval:
+        logging.info("[ONLY EVAL] Saltando fases 01-03 (distillation + training).")
     else:
-        logging.info(f"[RUN]  {step}")
-        process_dataset(data_dir, output_dir)
-        mark_done(output_dir, step)
-
-    # ===== PASO 2A: Generar datos de destilacion SIN RAG =====
-    step = "02_distill_no_rag"
-    if step_done(output_dir, step):
-        logging.info(f"[SKIP] {step}")
-    else:
-        logging.info(f"[RUN]  {step}")
-        generate_distillation_data(output_dir, "no_rag", config, False, None)
-        mark_done(output_dir, step)
-
-    # ===== PASO 2B: Generar datos de destilacion CON RAG =====
-    if rag_available:
-        step = "02_distill_with_rag"
+        # ===== PASO 1: Procesar dataset (compartido) =====
+        step = "01_process_dataset"
         if step_done(output_dir, step):
             logging.info(f"[SKIP] {step}")
         else:
             logging.info(f"[RUN]  {step}")
-            generate_distillation_data(output_dir, "with_rag", config, True, rag_retriever)
+            process_dataset(data_dir, output_dir)
             mark_done(output_dir, step)
 
-    # ===== PASO 3A: Entrenar student SIN RAG =====
-    step = "03_train_no_rag"
-    if step_done(output_dir, step):
-        logging.info(f"[SKIP] {step}")
-    else:
-        logging.info(f"[RUN]  {step}")
-        train_student(output_dir, "no_rag", config)
-        mark_done(output_dir, step)
-
-    if torch.cuda.is_available():
-        free_b, total_b = torch.cuda.mem_get_info()
-        logging.info(
-            f"[MEM] GPU tras no_rag: "
-            f"{free_b/1e9:.2f}/{total_b/1e9:.2f} GB libres"
-        )
-
-    # ===== PASO 3B: Entrenar student CON RAG =====
-    if rag_available:
-        step = "03_train_with_rag"
+        # ===== PASO 2A: Generar datos de destilacion SIN RAG =====
+        step = "02_distill_no_rag"
         if step_done(output_dir, step):
             logging.info(f"[SKIP] {step}")
         else:
             logging.info(f"[RUN]  {step}")
-            train_student(output_dir, "with_rag", config)
+            generate_distillation_data(output_dir, "no_rag", config, False, None)
             mark_done(output_dir, step)
+
+        # ===== PASO 2B: Generar datos de destilacion CON RAG =====
+        if rag_available:
+            step = "02_distill_with_rag"
+            if step_done(output_dir, step):
+                logging.info(f"[SKIP] {step}")
+            else:
+                logging.info(f"[RUN]  {step}")
+                generate_distillation_data(output_dir, "with_rag", config, True, rag_retriever)
+                mark_done(output_dir, step)
+
+        # ===== PASO 3A: Entrenar student SIN RAG =====
+        step = "03_train_no_rag"
+        if step_done(output_dir, step):
+            logging.info(f"[SKIP] {step}")
+        else:
+            logging.info(f"[RUN]  {step}")
+            train_student(output_dir, "no_rag", config)
+            mark_done(output_dir, step)
+
+        if torch.cuda.is_available():
+            free_b, total_b = torch.cuda.mem_get_info()
+            logging.info(
+                f"[MEM] GPU tras no_rag: "
+                f"{free_b/1e9:.2f}/{total_b/1e9:.2f} GB libres"
+            )
+
+        # ===== PASO 3B: Entrenar student CON RAG =====
+        if rag_available:
+            step = "03_train_with_rag"
+            if step_done(output_dir, step):
+                logging.info(f"[SKIP] {step}")
+            else:
+                logging.info(f"[RUN]  {step}")
+                train_student(output_dir, "with_rag", config)
+                mark_done(output_dir, step)
 
     # ===== PASO 4: Evaluacion comparativa =====
     step = "04_evaluation"
@@ -983,12 +1099,25 @@ def run_pipeline(args):
     if rag_available:
         experiments_run.append("with_rag")
 
-    if step_done(output_dir, step):
+    only_models = None
+    if args.only_models:
+        only_models = [m.strip() for m in args.only_models.split(",") if m.strip()]
+
+    if step_done(output_dir, step) and not args.only_eval and not only_models:
         logging.info(f"[SKIP] {step}")
     else:
         logging.info(f"[RUN]  {step}")
-        evaluate_models(output_dir, config, experiments_run)
-        mark_done(output_dir, step)
+        evaluate_models(
+            output_dir, config, experiments_run,
+            only_models=only_models,
+            eval_subset_size=args.eval_subset_size,
+            eval_seed=args.eval_seed,
+        )
+        # Solo marcamos como done si se evaluaron TODOS los modelos esperados.
+        # Con --only_models / --only_eval por fase, dejamos el checkpoint abierto
+        # para permitir corridas adicionales.
+        if not only_models:
+            mark_done(output_dir, step)
 
     logging.info("=" * 60)
     logging.info("PIPELINE COMPLETADO")
@@ -1010,6 +1139,19 @@ def parse_args():
                     help="Ignorar checkpoints, ejecutar desde cero")
     p.add_argument("--skip_rag", action="store_true",
                     help="Saltar experimento con RAG (solo ejecutar sin RAG)")
+    p.add_argument("--only_eval", action="store_true",
+                    help="Saltar fases 01-03 y correr solo la evaluacion. "
+                         "Asume que el entrenamiento ya termino.")
+    p.add_argument("--only_models", default=None,
+                    help="Lista coma-separada de model_keys a evaluar "
+                         "(e.g. 'base_student' o 'no_rag,with_rag'). "
+                         "Permite paralelizar la evaluacion en varios jobs SLURM.")
+    p.add_argument("--eval_subset_size", type=int, default=1500,
+                    help="Tamano del subset aleatorio para evaluacion. "
+                         "Usar 0 para evaluar el dataset completo (NO recomendado: "
+                         "63k items > 10 dias en accel-2). Default: 1500.")
+    p.add_argument("--eval_seed", type=int, default=42,
+                    help="Seed para el muestreo del subset de evaluacion.")
     return p.parse_args()
 
 
