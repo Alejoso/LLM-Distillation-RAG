@@ -29,6 +29,7 @@ chroma/
 # Outputs
 datasetTrain.json
 *.log
+logs/
 
 # Testing & Linting
 .pytest_cache/
