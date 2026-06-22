@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=40G
 #SBATCH --gres=gpu:1
-#SBATCH --time=02:00:00
+#SBATCH --time=04:00:00
 #SBATCH --output=logs/%x_%j.out
 #SBATCH --error=logs/%x_%j.err
 #SBATCH --mail-user=atirador1@eafit.edu.co
@@ -32,10 +32,13 @@ source /home/ugr-atirador1/LLM-Distillation-RAG/venv/bin/activate
 
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null
 
+# v3 = prompt anti-leak (answer-first + etiquetas + reglas explicitas para
+# empty/circular + few-shots F/G/H). Comparamos v2 vs v3 sobre 4 sets:
+# calibration_set, traps_set, traps_extended (20 nuevos traps), holdout (20).
 python 04_distillation/judge_calibration/calibrate_judge.py \
     --judge_name meta-llama/Llama-2-7b-chat-hf \
     --output_dir ./outputs/judge_calibration \
-    --versions v1 v2
+    --versions v2 v3
 
 EXIT_CODE=$?
 
