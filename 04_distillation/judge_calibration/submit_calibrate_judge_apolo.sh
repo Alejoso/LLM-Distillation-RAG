@@ -32,13 +32,20 @@ source /home/ugr-atirador1/LLM-Distillation-RAG/venv/bin/activate
 
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null
 
-# v3 = prompt anti-leak (answer-first + etiquetas + reglas explicitas para
-# empty/circular + few-shots F/G/H). Comparamos v2 vs v3 sobre 4 sets:
-# calibration_set, traps_set, traps_extended (20 nuevos traps), holdout (20).
+# Comparamos 4 variantes sobre 4 sets (calibration, traps, traps_extended, holdout):
+#   v2   = prompt rubric+few-shot (baseline, el mejor prompt hasta ahora)
+#   v4   = prompt reference-first afinado (off-topic / absurdo / lang-mix)
+#   v2g  = v2 + guardrail determinista pre-LLM (answer_guardrails.py)
+#   v4g  = v4 + guardrail determinista pre-LLM
+# El guardrail resuelve deterministamente la clase degenerada (vacio, eco,
+# circular, abstencion) que causaba el artefacto "student > teacher"; el prompt
+# solo juzga la clase semantica. v2/v2g y v4/v4g comparten la generacion LLM en
+# los items que la guarda deja pasar (una sola llamada por prompt por item).
+# NOTA: v3 se descarta (empeoro a v2: wMAE 1.48 vs 0.98, false_5 88 vs 52).
 python 04_distillation/judge_calibration/calibrate_judge.py \
     --judge_name meta-llama/Llama-2-7b-chat-hf \
     --output_dir ./outputs/judge_calibration \
-    --versions v2 v3
+    --variants v2 v4 v2g v4g
 
 EXIT_CODE=$?
 
