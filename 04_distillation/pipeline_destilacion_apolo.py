@@ -28,6 +28,13 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+# Guardrail determinista pre-juez (answer_guardrails.py vive en judge_calibration/).
+# Detecta respuestas degeneradas (vacio, eco, circular, abstencion) y les asigna
+# un score fijo SIN llamar al LLM, evitando el artefacto "student > teacher" en el
+# que un TinyLlama con salida truncada/degenerada recibia 5/5 del juez sesgado.
+sys.path.insert(0, str(Path(__file__).resolve().parent / "judge_calibration"))
+from answer_guardrails import screen_answer  # noqa: E402
+
 # ---------------------------------------------------------------------------
 # Configuracion
 # ---------------------------------------------------------------------------
@@ -695,8 +702,17 @@ def generate_model_response(model, tokenizer, device, instruction: str, max_new:
 
 def judge_response(
     judge_model, judge_tokenizer, device, question: str, answer: str,
-    reference: str = "", max_new: int = 512,
+    reference: str = "", max_new: int = 512, use_guardrail: bool = True,
 ) -> dict:
+    # Guardrail determinista: si el candidato es degenerado (vacio, eco de la
+    # pregunta, circular, o abstencion) se asigna el score fijo sin consultar al
+    # juez LLM. Es de alta precision: no dispara sobre respuestas que contienen el
+    # hecho de la referencia. Devuelve el marcador _guard para auditoria.
+    if use_guardrail:
+        guard = screen_answer(question, answer, reference)
+        if guard is not None:
+            return guard
+
     user_content = f"Question:\n{question}\n"
     if reference:
         user_content += f"\nReference answer:\n{reference}\n"

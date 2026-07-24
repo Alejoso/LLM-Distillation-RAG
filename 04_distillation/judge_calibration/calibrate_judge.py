@@ -38,15 +38,34 @@ import numpy as np
 # Permitir importar judge_prompts.py del mismo directorio
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from judge_prompts import build_judge_prompt, get_system_prompt  # noqa: E402
+from answer_guardrails import screen_answer  # noqa: E402
 
 # torch/transformers se importan dentro de main() para que el modulo se pueda
 # importar en tests sin GPU/HF stack.
 
 DIMENSIONS = ["accuracy_score", "relevance_score", "completeness_score", "clarity_score"]
 JUDGE_WEIGHTS = {"accuracy": 0.4, "relevance": 0.3, "completeness": 0.2, "clarity": 0.1}
-SUPPORTED_VERSIONS = ["v1", "v2", "v3"]
+SUPPORTED_VERSIONS = ["v1", "v2", "v3", "v4"]
 BOOTSTRAP_ITERATIONS = 2000
 BOOTSTRAP_SEED = 20260619
+
+
+def parse_variant(name: str) -> tuple:
+    """Convierte un nombre de variante en (prompt_version, use_guardrail).
+
+    Una variante es un prompt (v1..v4) con o sin el sufijo 'g' (guardrail
+    determinista pre-LLM). Ejemplos:
+        'v2'  -> ('v2', False)
+        'v4g' -> ('v4', True)
+    """
+    guard = name.endswith("g")
+    pv = name[:-1] if guard else name
+    if pv not in SUPPORTED_VERSIONS:
+        raise ValueError(
+            f"Variante desconocida: {name!r}. Usa <version>[g] con version en "
+            f"{SUPPORTED_VERSIONS} (p.ej. v2, v4, v2g, v4g)."
+        )
+    return pv, guard
 
 
 # ---------------------------------------------------------------------------
@@ -211,22 +230,41 @@ def category_breakdown(records: list, version: str) -> dict:
 # ---------------------------------------------------------------------------
 # Pipeline
 # ---------------------------------------------------------------------------
-def evaluate_set(model, tokenizer, device, items: list, versions: list, max_new: int) -> list:
+def evaluate_set(model, tokenizer, device, items: list, variants: list, max_new: int) -> list:
+    """Evalua cada item con cada variante.
+
+    `variants` es una lista de (name, prompt_version, use_guardrail). Cuando la
+    guarda dispara, se usa su score determinista y se OMITE el LLM. La llamada al
+    LLM se cachea por prompt_version dentro de cada item, de modo que una variante
+    cruda y su version con guarda (p.ej. v2 y v2g) comparten una unica generacion
+    para los items que la guarda deja pasar.
+    """
     out_records = []
     n = len(items)
     for i, item in enumerate(items, 1):
         rec = dict(item)  # copy
-        for v in versions:
-            prompt = build_judge_prompt(
-                v,
-                item["instruction"],
-                item["candidate_answer"],
-                item.get("reference", ""),
-            )
-            t0 = time.time()
-            pred = run_judge(model, tokenizer, device, prompt, max_new_tokens=max_new)
-            rec[f"pred_{v}"] = pred
-            rec[f"pred_{v}_seconds"] = round(time.time() - t0, 2)
+        instruction = item["instruction"]
+        candidate = item["candidate_answer"]
+        reference = item.get("reference", "")
+        llm_cache = {}  # prompt_version -> (pred, seconds)
+
+        def _llm(prompt_version):
+            if prompt_version not in llm_cache:
+                prompt = build_judge_prompt(prompt_version, instruction, candidate, reference)
+                t0 = time.time()
+                pred = run_judge(model, tokenizer, device, prompt, max_new_tokens=max_new)
+                llm_cache[prompt_version] = (pred, round(time.time() - t0, 2))
+            return llm_cache[prompt_version]
+
+        for name, prompt_version, use_guard in variants:
+            guard_pred = screen_answer(instruction, candidate, reference) if use_guard else None
+            if guard_pred is not None:
+                rec[f"pred_{name}"] = guard_pred
+                rec[f"pred_{name}_seconds"] = 0.0
+            else:
+                pred, seconds = _llm(prompt_version)
+                rec[f"pred_{name}"] = pred
+                rec[f"pred_{name}_seconds"] = seconds
         out_records.append(rec)
         if i % 5 == 0 or i == n:
             logging.info(f"  juez evaluado: {i}/{n}")
@@ -253,15 +291,25 @@ def main():
                              "Usar '' para desactivarlo.")
     parser.add_argument("--output_dir", default="./outputs/judge_calibration",
                         help="Directorio donde guardar results y report")
-    parser.add_argument("--versions", nargs="+", default=["v2", "v3"],
+    parser.add_argument("--versions", nargs="+", default=None,
                         choices=SUPPORTED_VERSIONS,
-                        help="Versiones del prompt a evaluar")
+                        help="[legacy] versiones de prompt SIN guardrail. Alias de "
+                             "--variants con los mismos nombres.")
+    parser.add_argument("--variants", nargs="+",
+                        default=["v2", "v4", "v2g", "v4g"],
+                        help="Variantes a evaluar: <version>[g], donde el sufijo "
+                             "'g' activa el guardrail determinista pre-LLM. "
+                             "Default: v2 v4 v2g v4g (compara prompt vs prompt+guard).")
     parser.add_argument("--max_new_tokens", type=int, default=512)
     parser.add_argument("--seed", type=int, default=BOOTSTRAP_SEED,
                         help="Seed para bootstrap y generacion (do_sample=False igual fija decodificacion).")
     parser.add_argument("--limit", type=int, default=0,
                         help="Si > 0, evaluar solo los primeros N items de cada set (debug)")
     args = parser.parse_args()
+
+    # --versions (legacy) es un alias de --variants sin guardrail.
+    variant_names = args.versions if args.versions else args.variants
+    variants = [(name, *parse_variant(name)) for name in variant_names]
 
     here = Path(__file__).resolve().parent
 
@@ -288,7 +336,7 @@ def main():
 
     logging.info("=" * 60)
     logging.info(f"Calibracion del juez: {args.judge_name}")
-    logging.info(f"versions: {args.versions}")
+    logging.info(f"variants: {variant_names}")
     logging.info("=" * 60)
 
     # Cargar sets
@@ -321,10 +369,13 @@ def main():
         it["set"] = "holdout"
 
     # Metadata reproducible
+    prompt_versions = sorted({pv for _, pv, _ in variants})
     metadata = {
         "judge_name": args.judge_name,
-        "versions": args.versions,
-        "prompt_hashes": {v: _prompt_hash(v) for v in args.versions},
+        "variants": variant_names,
+        "variant_defs": {name: {"prompt_version": pv, "guardrail": guard}
+                         for name, pv, guard in variants},
+        "prompt_hashes": {pv: _prompt_hash(pv) for pv in prompt_versions},
         "seed": args.seed,
         "max_new_tokens": args.max_new_tokens,
         "do_sample": False,
@@ -359,7 +410,7 @@ def main():
     logging.info("Juez cargado.")
 
     all_items = cal_items + trap_items + trap_ext_items + holdout_items
-    records = evaluate_set(model, tokenizer, device, all_items, args.versions, args.max_new_tokens)
+    records = evaluate_set(model, tokenizer, device, all_items, variants, args.max_new_tokens)
 
     # Anexar metadata por record (para auditoria fuera del report)
     for r in records:
@@ -373,18 +424,29 @@ def main():
     save_jsonl(records, output_dir / "results.jsonl")
     logging.info(f"results.jsonl guardado en {output_dir}")
 
+    # Resumen de disparos del guardrail (para variantes con guarda: comparten
+    # el mismo screen determinista, asi que lo contamos una sola vez).
+    guard_fires = {}
+    for r in records:
+        g = screen_answer(r["instruction"], r["candidate_answer"], r.get("reference", ""))
+        if g is not None:
+            guard_fires[g["_guard"]] = guard_fires.get(g["_guard"], 0) + 1
+    metadata["guardrail_fires"] = guard_fires
+    metadata["guardrail_fires_total"] = sum(guard_fires.values())
+    logging.info(f"guardrail disparos: {sum(guard_fires.values())}/{len(records)} {guard_fires}")
+
     # Reporte
     report = {"metadata": metadata, "n_items": len(records)}
     set_names = ["calibration", "traps", "traps_extended", "holdout"]
     set_names = [s for s in set_names if any(r.get("set") == s for r in records)]
-    for v in args.versions:
-        overall = analyze_predictions(records, v)
+    for name, _, _ in variants:
+        overall = analyze_predictions(records, name)
         by_set = {}
         for set_name in set_names:
             subset = [r for r in records if r.get("set") == set_name]
-            by_set[set_name] = analyze_predictions(subset, v)
-        cats = category_breakdown(records, v)
-        report[v] = {"overall": overall, "by_set": by_set, "by_category": cats}
+            by_set[set_name] = analyze_predictions(subset, name)
+        cats = category_breakdown(records, name)
+        report[name] = {"overall": overall, "by_set": by_set, "by_category": cats}
 
     save_json(report, output_dir / "report.json")
 
@@ -392,10 +454,12 @@ def main():
     logging.info("=" * 60)
     logging.info("RESUMEN")
     logging.info("=" * 60)
-    for v in args.versions:
-        r = report[v]["overall"]
+    for name, prompt_version, use_guard in variants:
+        r = report[name]["overall"]
         ci = r.get("weighted_mae_ci95", {})
-        logging.info(f"\n--- {v} (sha={metadata['prompt_hashes'][v]}) ---")
+        guard_tag = " +guard" if use_guard else ""
+        logging.info(f"\n--- {name} (prompt={prompt_version}{guard_tag}, "
+                     f"sha={metadata['prompt_hashes'][prompt_version]}) ---")
         logging.info(f"  parse_errors: {r['parse_errors']}/{len(records)}")
         ci_str = f" [95% CI {ci.get('lo')}..{ci.get('hi')}]" if ci.get("lo") is not None else ""
         logging.info(f"  weighted MAE: {r['weighted_mae']}{ci_str}")
@@ -407,7 +471,7 @@ def main():
             )
         # Resumen por set
         for set_name in set_names:
-            s = report[v]["by_set"][set_name]
+            s = report[name]["by_set"][set_name]
             sci = s.get("weighted_mae_ci95", {})
             sci_str = f" [{sci.get('lo')}..{sci.get('hi')}]" if sci.get("lo") is not None else ""
             logging.info(

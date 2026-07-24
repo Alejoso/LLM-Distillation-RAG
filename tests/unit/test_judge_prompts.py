@@ -23,12 +23,13 @@ from judge_prompts import (  # noqa: E402
     JUDGE_SYSTEM_PROMPT_V1,
     JUDGE_SYSTEM_PROMPT_V2,
     JUDGE_SYSTEM_PROMPT_V3,
+    JUDGE_SYSTEM_PROMPT_V4,
     build_judge_prompt,
     get_system_prompt,
 )
 
 
-@pytest.mark.parametrize("version", ["v1", "v2", "v3"])
+@pytest.mark.parametrize("version", ["v1", "v2", "v3", "v4"])
 def test_builds_llama2_inst_format(version):
     prompt = build_judge_prompt(version, "P?", "A", reference="R")
     assert prompt.startswith("<s>[INST] <<SYS>>")
@@ -52,12 +53,21 @@ def test_unknown_version_raises():
         get_system_prompt("foo")
 
 
-@pytest.mark.parametrize("version", ["v1", "v2"])
-def test_v1_v2_reference_before_answer(version):
+@pytest.mark.parametrize("version", ["v1", "v2", "v4"])
+def test_reference_before_answer(version):
+    """v1/v2/v4 usan orden reference-first (empiricamente mejor que v3)."""
     prompt = build_judge_prompt(version, "Q?", "MY_ANSWER", reference="MY_REFERENCE")
     ref_idx = prompt.index("MY_REFERENCE")
     ans_idx = prompt.index("MY_ANSWER")
     assert ref_idx < ans_idx, f"{version}: reference debe ir antes que answer"
+
+
+def test_v4_targets_off_topic_and_absurd():
+    """v4 debe cubrir las clases que solo la semantica resuelve."""
+    sp = JUDGE_SYSTEM_PROMPT_V4.lower()
+    assert "off-topic" in sp or "off topic" in sp
+    assert "absurd" in sp or "hallucinated" in sp
+    assert "never state" in sp or "never states" in sp or "without ever stating" in sp
 
 
 def test_v3_answer_before_reference():
@@ -139,6 +149,6 @@ def test_v3_no_regression_on_critical_rules_from_v2():
 
 def test_question_appears_in_prompt():
     """La pregunta siempre va en el prompt, en todas las versiones."""
-    for v in ["v1", "v2", "v3"]:
+    for v in ["v1", "v2", "v3", "v4"]:
         p = build_judge_prompt(v, "PREGUNTA_UNICA_X9Z", "A", reference="R")
         assert "PREGUNTA_UNICA_X9Z" in p
