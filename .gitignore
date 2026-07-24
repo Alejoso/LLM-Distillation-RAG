@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Data (large files - not tracked)
+data/
+dataCleaned/
+dataCleanedExample/
+DataSet.tar.gz
+chroma_*/
+chroma/
+
+# Outputs
+datasetTrain.json
+*.log
+logs/
+
+# Testing & Linting
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# Environment
+.env
+.deepeval/
+
+# LaTeX auxiliary
+*.aux
+*.log
+*.out
+*.synctex.gz
+*.toc
+*.bbl
+*.blg
+
+# Misc
+pyproject.toml
+LLM-Distillation-RAG-Wiki.wiki/
+REVISION_PARA_ESTUDIANTES.md
