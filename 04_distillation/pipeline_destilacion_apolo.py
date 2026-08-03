@@ -34,6 +34,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 # que un TinyLlama con salida truncada/degenerada recibia 5/5 del juez sesgado.
 sys.path.insert(0, str(Path(__file__).resolve().parent / "judge_calibration"))
 from answer_guardrails import screen_answer  # noqa: E402
+from judge_prompts import get_system_prompt  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Configuracion
@@ -674,15 +675,11 @@ def train_student(output_dir: Path, experiment_name: str, config: dict):
 # ---------------------------------------------------------------------------
 # Paso 4: Evaluacion comparativa (LLM-as-Judge)
 # ---------------------------------------------------------------------------
-JUDGE_SYSTEM_PROMPT = """You are a strict evaluator. Given a question and an answer, score the answer on four dimensions.
-Return ONLY valid JSON with these exact keys:
-- accuracy_score (1-5): 1=completely incorrect, 5=fully correct
-- relevance_score (1-5): 1=off-topic, 5=directly answers all parts
-- completeness_score (1-5): 1=very incomplete, 5=fully complete
-- clarity_score (1-5): 1=very unclear, 5=very clear
-- one_sentence_summary: exactly one sentence summary
-
-Output ONLY valid JSON. No markdown. No extra text."""
+# Prompt del juez: variante ganadora de la calibracion 2026-07-24 = v2 + guardrail
+# (v2g, weighted MAE 0.524 vs 0.981 del v1 original). Se importa de judge_prompts
+# (fuente unica) para que produccion no vuelva a divergir de la version calibrada.
+# El guardrail determinista se aplica aparte en judge_response (use_guardrail=True).
+JUDGE_SYSTEM_PROMPT = get_system_prompt("v2")
 
 
 def generate_model_response(model, tokenizer, device, instruction: str, max_new: int = 256) -> str:
