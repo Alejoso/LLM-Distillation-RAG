@@ -1,0 +1,12 @@
+# Reproducible environment for the EOS fix repro (local Mac/MPS + Apolo/CUDA).
+# Pinned to match the distillation stack. On Apolo install the CUDA torch build
+# separately (e.g. torch==2.6.0 from the CUDA index); versions below are otherwise
+# platform-independent.
+torch==2.6.0
+transformers==4.46.3
+tokenizers==0.20.3
+huggingface_hub==0.26.2
+accelerate==1.1.1
+safetensors==0.4.5
+sentencepiece==0.2.0
+numpy==2.0.2

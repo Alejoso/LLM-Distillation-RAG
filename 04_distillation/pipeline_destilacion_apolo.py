@@ -405,6 +405,11 @@ def generate_distillation_data(
 
             full_text = tokenizer.decode(gen_ids[0], skip_special_tokens=True)
             teacher_output = extract_response(full_text) or "[EMPTY_RESPONSE]"
+            # NOTA: el EOS lo aprende el student via el eos_mask de
+            # DistillationDataset (hard-CE sobre la 1a posicion pad/EOS tras la
+            # respuesta). Funciona igual reusando estos datos/logits o
+            # regenerandolos, sin depender de que el tokenizer parsee un "</s>"
+            # de texto -> evita inyectar el string literal al entrenamiento.
 
             # Logits sobre prompt+respuesta completa
             full_tokens = tokenizer(
@@ -501,17 +506,29 @@ class DistillationDataset(Dataset):
         )
 
         response_mask = torch.zeros(self.max_len, dtype=torch.float32)
+        eos_mask = torch.zeros(self.max_len, dtype=torch.float32)
         prompt_len = min(prompt_tokens["input_ids"].size(1), self.max_len)
         pad_id = self.tokenizer.pad_token_id
+        last_resp = prompt_len - 1
         for j in range(prompt_len, self.max_len):
             if input_ids[j].item() != pad_id:
                 response_mask[j] = 1.0
+                last_resp = j
+        # Ensenar al student a TERMINAR: la primera posicion de pad tras la
+        # respuesta contiene el token EOS (pad_token == eos_token). La marcamos
+        # SOLO para la hard-loss (CE hacia EOS). La soft-loss (KD) la ignora
+        # porque no hay logits del teacher en esa posicion. Sin esto el student
+        # nunca recibe gradiente para emitir EOS -> nunca para -> degenera.
+        eos_pos = last_resp + 1
+        if prompt_len <= eos_pos < self.max_len and input_ids[eos_pos].item() == pad_id:
+            eos_mask[eos_pos] = 1.0
 
         return {
             "input_ids": input_ids,
             "attention_mask": attention_mask,
             "teacher_logits": teacher_logits,
             "response_mask": response_mask,
+            "eos_mask": eos_mask,
         }
 
 
@@ -579,6 +596,7 @@ def train_student(output_dir: Path, experiment_name: str, config: dict):
             attention_mask = batch["attention_mask"].to(device)
             teacher_logits = batch["teacher_logits"].to(device)
             response_mask = batch["response_mask"].to(device)
+            eos_mask = batch["eos_mask"].to(device)
 
             with torch.cuda.amp.autocast(dtype=torch.float16):
                 student_logits = student(
@@ -590,6 +608,8 @@ def train_student(output_dir: Path, experiment_name: str, config: dict):
                 s_t = teacher_logits[:, 1:, :]
                 s_labels = input_ids[:, 1:]
                 s_mask = response_mask[:, 1:]
+                # Hard-loss tambien sobre la posicion EOS (KD no, no hay teacher ahi).
+                h_mask = (response_mask + eos_mask)[:, 1:].clamp(max=1.0)
 
                 # Soft/hard loss computados en FP32 fuera del autocast para
                 # evitar overflow en exp() del softmax con vocab grande.
@@ -604,7 +624,7 @@ def train_student(output_dir: Path, experiment_name: str, config: dict):
                 s_labels.reshape(-1),
                 reduction="none",
             ).view_as(s_labels)
-            hard_loss = (hard_tok * s_mask).sum() / (s_mask.sum() + 1e-8)
+            hard_loss = (hard_tok * h_mask).sum() / (h_mask.sum() + 1e-8)
 
             loss = alpha * soft_loss + (1 - alpha) * hard_loss
 
@@ -689,12 +709,15 @@ def generate_model_response(model, tokenizer, device, instruction: str, max_new:
         out = model.generate(
             **inputs,
             max_new_tokens=max_new,
-            do_sample=True,
-            temperature=0.7,
-            top_p=0.9,
+            do_sample=False,              # greedy: eval determinista y reproducible
+            repetition_penalty=1.3,       # corta los loops degenerados
+            no_repeat_ngram_size=3,
+            eos_token_id=tokenizer.eos_token_id,
             pad_token_id=tokenizer.pad_token_id,
         )
-    return extract_response(tokenizer.decode(out[0], skip_special_tokens=True))
+    # Decodificar solo los tokens NUEVOS (no el prompt) y cortar en EOS.
+    gen = out[0][inputs["input_ids"].shape[1]:]
+    return tokenizer.decode(gen, skip_special_tokens=True).strip()
 
 
 def judge_response(
