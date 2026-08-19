@@ -19,9 +19,9 @@ the base model's repetitive English text.
   the response.
 - `train_student`: apply the hard-CE loss on that EOS position (KD skips it,
   there are no teacher logits there). Reuses existing teacher logits, so only the
-  student training needs re-running, not the expensive teacher inference.
-- `generate_distillation_data`: append EOS to `teacher_output` for clean KD+CE on
-  the EOS position if data is ever regenerated.
+  student training needs re-running, not the expensive teacher inference. The same
+  `eos_mask` also makes a full data regeneration correct, with no reliance on the
+  tokenizer parsing a literal `</s>` string — both plans behave identically.
 - `generate_model_response`: greedy (reproducible) + `repetition_penalty=1.3` +
   `no_repeat_ngram_size=3` + explicit `eos_token_id`.
 
